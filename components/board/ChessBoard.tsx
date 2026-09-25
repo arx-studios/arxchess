@@ -13,10 +13,13 @@ type ChessBoardProps = {
   lastMove?: LastMoveHighlight;
   checkSquare?: string | null;
   arrows?: Arrow[];
-  legalDestinations: (square: string) => { to: string; promotion?: boolean }[];
-  onMove: (from: string, to: string) => boolean;
-  onPromotionNeeded: (from: string, to: string) => void;
+  /** Omit all three for a read-only/spectator board (e.g. Arena mode). */
+  legalDestinations?: (square: string) => { to: string; promotion?: boolean }[];
+  onMove?: (from: string, to: string) => boolean;
+  onPromotionNeeded?: (from: string, to: string) => void;
 };
+
+const NO_DESTINATIONS: { to: string; promotion?: boolean }[] = [];
 
 const SELECTED_STYLE: React.CSSProperties = { boxShadow: "inset 0 0 0 3px rgba(59,130,246,0.85)" };
 const LAST_MOVE_STYLE: React.CSSProperties = { backgroundColor: "rgba(250, 204, 21, 0.45)" };
@@ -43,18 +46,18 @@ export function ChessBoard({
   const [selected, setSelected] = useState<string | null>(null);
 
   const destinations = useMemo(
-    () => (selected ? legalDestinations(selected) : []),
+    () => (selected ? (legalDestinations?.(selected) ?? NO_DESTINATIONS) : NO_DESTINATIONS),
     [selected, legalDestinations, fen],
   );
 
   function attemptMove(from: string, to: string): boolean {
-    const candidate = legalDestinations(from).find((d) => d.to === to);
+    const candidate = legalDestinations?.(from).find((d) => d.to === to);
     if (!candidate) return false;
     if (candidate.promotion) {
-      onPromotionNeeded(from, to);
+      onPromotionNeeded?.(from, to);
       return false;
     }
-    return onMove(from, to);
+    return onMove?.(from, to) ?? false;
   }
 
   function handlePieceDrop({ sourceSquare, targetSquare }: PieceDropHandlerArgs): boolean {

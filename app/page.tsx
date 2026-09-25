@@ -35,7 +35,7 @@ const MODES: { href: string; title: string; description: string; ready: boolean 
     href: "/arena",
     title: "Arena",
     description: "Pit engines against each other and watch them play.",
-    ready: false,
+    ready: true,
   },
 ];
 
