@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "puzzles:build": "node scripts/generate-puzzles.mjs"
+    "puzzles:build": "node scripts/generate-puzzles.mjs",
+    "ws-server": "tsx watch server/index.ts",
+    "dev:all": "concurrently -n next,ws -c blue,magenta \"npm:dev\" \"npm:ws-server\""
   },
   "dependencies": {
     "chess.js": "^1.4.0",
@@ -25,6 +27,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/ws": "^8.18.1",
+    "concurrently": "^10.0.5",
     "eslint": "^9",
     "eslint-config-next": "16.3.6",
     "playwright": "^1.63.0",

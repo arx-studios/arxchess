@@ -17,7 +17,7 @@ const MODES: { href: string; title: string; description: string; ready: boolean 
     href: "/play/online",
     title: "Online",
     description: "Real-time multiplayer over a shared room link.",
-    ready: false,
+    ready: true,
   },
   {
     href: "/analysis",
