@@ -1,21 +1,9 @@
 import { Chess, type Square } from "chess.js";
 import { create } from "zustand";
-import { deriveResult, type GameResult } from "@/lib/chess/status";
+import { snapshotGame, type GameSnapshot, type LastMove } from "@/lib/chess/snapshot";
 import type { PieceColor } from "@/lib/chess/types";
 
-export type LastMove = { from: string; to: string } | null;
-
-type DerivedState = {
-  fen: string;
-  sanHistory: string[];
-  turn: PieceColor;
-  isCheck: boolean;
-  checkSquare: string | null;
-  result: GameResult;
-  lastMove: LastMove;
-};
-
-type LocalGameState = DerivedState & {
+type LocalGameState = GameSnapshot & {
   boardOrientation: "white" | "black";
 };
 
@@ -31,18 +19,8 @@ type LocalGameActions = {
 
 const game = new Chess();
 
-function snapshot(lastMove: LastMove): DerivedState {
-  const isCheck = game.isCheck();
-  const checkedKing = isCheck ? game.findPiece({ type: "k", color: game.turn() })[0] : undefined;
-  return {
-    fen: game.fen(),
-    sanHistory: game.history(),
-    turn: game.turn(),
-    isCheck,
-    checkSquare: checkedKing ?? null,
-    result: deriveResult(game),
-    lastMove,
-  };
+function snapshot(lastMove: LastMove): GameSnapshot {
+  return snapshotGame(game, lastMove);
 }
 
 export const useLocalGameStore = create<LocalGameState & LocalGameActions>((set, get) => ({

@@ -11,7 +11,7 @@ const MODES: { href: string; title: string; description: string; ready: boolean 
     href: "/play/ai",
     title: "vs AI",
     description: "Play Stockfish at an adjustable strength.",
-    ready: false,
+    ready: true,
   },
   {
     href: "/play/online",
