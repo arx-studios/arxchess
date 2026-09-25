@@ -28,8 +28,8 @@ const MODES: { href: string; title: string; description: string; ready: boolean 
   {
     href: "/puzzles",
     title: "Puzzles",
-    description: "Solve tactics pulled from real games.",
-    ready: false,
+    description: "Solve mate-in-1 tactics.",
+    ready: true,
   },
   {
     href: "/arena",

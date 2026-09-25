@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "puzzles:build": "node scripts/generate-puzzles.mjs"
   },
   "dependencies": {
     "chess.js": "^1.4.0",
