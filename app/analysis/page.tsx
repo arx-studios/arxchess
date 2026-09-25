@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ChessBoard } from "@/components/board/ChessBoard";
-import { PromotionDialog } from "@/components/board/PromotionDialog";
 import { MoveList } from "@/components/board/MoveList";
 import { EvalBar } from "@/components/board/EvalBar";
 import { StockfishClient, type EngineInfo, type EngineMove } from "@/lib/engine/stockfishClient";
@@ -29,7 +28,6 @@ export default function AnalysisPage() {
     stepForward,
   } = useAnalysisStore();
 
-  const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null);
   const [pgnText, setPgnText] = useState("");
   const [pgnError, setPgnError] = useState<string | null>(null);
   const [engineReady, setEngineReady] = useState(false);
@@ -74,9 +72,7 @@ export default function AnalysisPage() {
   }
 
   const whiteScore = liveInfo ? toWhiteScore(liveInfo, turn) : null;
-  const arrows = bestMove
-    ? [{ startSquare: bestMove.from, endSquare: bestMove.to, color: "rgba(59,130,246,0.8)" }]
-    : [];
+  const arrows = bestMove ? [{ from: bestMove.from, to: bestMove.to }] : [];
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
@@ -102,8 +98,7 @@ export default function AnalysisPage() {
             checkSquare={checkSquare}
             arrows={arrows}
             legalDestinations={legalDestinations}
-            onMove={(from, to) => makeMove({ from, to })}
-            onPromotionNeeded={(from, to) => setPendingPromotion({ from, to })}
+            onMove={(from, to, promotion) => makeMove({ from, to, promotion })}
           />
         </div>
 
@@ -157,17 +152,6 @@ export default function AnalysisPage() {
           </div>
         </div>
       </div>
-
-      {pendingPromotion && (
-        <PromotionDialog
-          color={turn}
-          onCancel={() => setPendingPromotion(null)}
-          onSelect={(piece) => {
-            makeMove({ from: pendingPromotion.from, to: pendingPromotion.to, promotion: piece });
-            setPendingPromotion(null);
-          }}
-        />
-      )}
     </div>
   );
 }

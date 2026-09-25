@@ -1,0 +1,122 @@
+/* chess.com-style skin for chessground: Neo pieces, Green board. */
+
+.arx-board {
+  container-type: inline-size;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 4px;
+  overflow: visible;
+  background: url("/themes/boards/green.png") center / cover;
+  touch-action: none;
+}
+
+.arx-board .cg-wrap {
+  width: 100%;
+  height: 100%;
+}
+
+.arx-board cg-board {
+  background-image: url("/themes/boards/green.png");
+  border-radius: 4px;
+}
+
+/* Pieces */
+.arx-board .cg-wrap piece.pawn.white { background-image: url("/themes/pieces/neo/wp.png"); }
+.arx-board .cg-wrap piece.knight.white { background-image: url("/themes/pieces/neo/wn.png"); }
+.arx-board .cg-wrap piece.bishop.white { background-image: url("/themes/pieces/neo/wb.png"); }
+.arx-board .cg-wrap piece.rook.white { background-image: url("/themes/pieces/neo/wr.png"); }
+.arx-board .cg-wrap piece.queen.white { background-image: url("/themes/pieces/neo/wq.png"); }
+.arx-board .cg-wrap piece.king.white { background-image: url("/themes/pieces/neo/wk.png"); }
+.arx-board .cg-wrap piece.pawn.black { background-image: url("/themes/pieces/neo/bp.png"); }
+.arx-board .cg-wrap piece.knight.black { background-image: url("/themes/pieces/neo/bn.png"); }
+.arx-board .cg-wrap piece.bishop.black { background-image: url("/themes/pieces/neo/bb.png"); }
+.arx-board .cg-wrap piece.rook.black { background-image: url("/themes/pieces/neo/br.png"); }
+.arx-board .cg-wrap piece.queen.black { background-image: url("/themes/pieces/neo/bq.png"); }
+.arx-board .cg-wrap piece.king.black { background-image: url("/themes/pieces/neo/bk.png"); }
+
+.arx-board .cg-wrap piece.ghost { opacity: 0.35; }
+.arx-board cg-board piece.dragging { cursor: grabbing; }
+.arx-board .cg-wrap.manipulable cg-board { cursor: default; }
+
+/* Square highlights */
+.arx-board cg-board square.last-move,
+.arx-board cg-board square.selected {
+  background-color: rgba(255, 255, 51, 0.5);
+}
+
+.arx-board cg-board square.check {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 0, 0, 1) 0%,
+    rgba(231, 0, 0, 1) 25%,
+    rgba(169, 0, 0, 0) 89%,
+    rgba(158, 0, 0, 0) 100%
+  );
+}
+
+.arx-board cg-board square.move-dest {
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.14) 23%, rgba(0, 0, 0, 0) 24%);
+  cursor: pointer;
+}
+
+.arx-board cg-board square.move-dest.oc {
+  background: radial-gradient(
+    circle,
+    rgba(0, 0, 0, 0) 56%,
+    rgba(0, 0, 0, 0.14) 57%,
+    rgba(0, 0, 0, 0.14) 70%,
+    rgba(0, 0, 0, 0) 71%
+  );
+}
+
+.arx-board cg-board square.move-dest:hover {
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 0 0 0.55cqw rgba(255, 255, 255, 0.7);
+}
+
+/* Arrows / circles */
+.arx-board .cg-wrap .cg-shapes { opacity: 0.8; }
+
+/* Coordinates inside the edge squares, chess.com style */
+.arx-board .cg-wrap coords {
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-size: 2.6cqw;
+  font-weight: 600;
+  opacity: 1;
+  text-transform: none;
+}
+
+.arx-board .cg-wrap coords coord.coord-dark { color: #ebecd0; }
+.arx-board .cg-wrap coords coord.coord-light { color: #739552; }
+
+.arx-board .cg-wrap coords.ranks,
+.arx-board .cg-wrap coords.ranks.left {
+  left: 0;
+  top: 0;
+  width: 12.5%;
+  height: 100%;
+  align-items: flex-start;
+}
+
+.arx-board .cg-wrap coords.ranks coord {
+  flex: 1 1 0;
+  transform: none;
+  padding: 0.5cqw 0 0 0.6cqw;
+  line-height: 1;
+}
+
+.arx-board .cg-wrap coords.files {
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 12.5%;
+  align-items: flex-end;
+}
+
+.arx-board .cg-wrap coords.files coord {
+  flex: 1 1 0;
+  text-align: right;
+  padding: 0 0.6cqw 0.4cqw 0;
+  line-height: 1;
+}

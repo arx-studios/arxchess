@@ -3,7 +3,6 @@
 import { use, useMemo, useState } from "react";
 import { Chess, type Square } from "chess.js";
 import { ChessBoard } from "@/components/board/ChessBoard";
-import { PromotionDialog } from "@/components/board/PromotionDialog";
 import { MoveList } from "@/components/board/MoveList";
 import { GameStatusBanner } from "@/components/board/GameStatusBanner";
 import { ClockDisplay } from "@/components/board/Clock";
@@ -15,7 +14,6 @@ const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 export default function OnlineRoomPage({ params }: { params: Promise<{ roomId: string }> }) {
   const { roomId } = use(params);
   const { state, status, move, resign } = useGameSocket(roomId);
-  const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
   const fen = state?.fen ?? START_FEN;
@@ -71,11 +69,10 @@ export default function OnlineRoomPage({ params }: { params: Promise<{ roomId: s
             lastMove={state.lastMove}
             checkSquare={checkSquare}
             legalDestinations={legalDestinations}
-            onMove={(from, to) => {
-              move(from, to);
+            onMove={(from, to, promotion) => {
+              move(from, to, promotion);
               return true;
             }}
-            onPromotionNeeded={(from, to) => setPendingPromotion({ from, to })}
           />
         </div>
 
@@ -108,17 +105,6 @@ export default function OnlineRoomPage({ params }: { params: Promise<{ roomId: s
           </div>
         </div>
       </div>
-
-      {pendingPromotion && (
-        <PromotionDialog
-          color={state.turn}
-          onCancel={() => setPendingPromotion(null)}
-          onSelect={(piece) => {
-            move(pendingPromotion.from, pendingPromotion.to, piece);
-            setPendingPromotion(null);
-          }}
-        />
-      )}
     </div>
   );
 }

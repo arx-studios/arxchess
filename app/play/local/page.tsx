@@ -2,7 +2,6 @@
 
 import { useCallback, useState } from "react";
 import { ChessBoard } from "@/components/board/ChessBoard";
-import { PromotionDialog } from "@/components/board/PromotionDialog";
 import { MoveList } from "@/components/board/MoveList";
 import { GameStatusBanner } from "@/components/board/GameStatusBanner";
 import { ClockDisplay, useChessClock } from "@/components/board/Clock";
@@ -34,7 +33,6 @@ export default function LocalPlayPage() {
     flagFall,
   } = useLocalGameStore();
 
-  const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null);
   const [clockSeconds, setClockSeconds] = useState(300);
 
   const handleFlagFall = useCallback((color: "w" | "b") => flagFall(color), [flagFall]);
@@ -50,7 +48,6 @@ export default function LocalPlayPage() {
   function handleReset() {
     reset();
     resetClock(clockSeconds || 1);
-    setPendingPromotion(null);
   }
 
   function handleTimeControlChange(seconds: number) {
@@ -70,12 +67,12 @@ export default function LocalPlayPage() {
           <ChessBoard
             fen={fen}
             orientation={boardOrientation}
+            interactive={!result}
             turnColor={turn}
             lastMove={lastMove}
             checkSquare={checkSquare}
             legalDestinations={legalDestinations}
-            onMove={(from, to) => makeMove({ from, to })}
-            onPromotionNeeded={(from, to) => setPendingPromotion({ from, to })}
+            onMove={(from, to, promotion) => makeMove({ from, to, promotion })}
           />
         </div>
 
@@ -138,17 +135,6 @@ export default function LocalPlayPage() {
           </div>
         </div>
       </div>
-
-      {pendingPromotion && (
-        <PromotionDialog
-          color={turn}
-          onCancel={() => setPendingPromotion(null)}
-          onSelect={(piece) => {
-            makeMove({ from: pendingPromotion.from, to: pendingPromotion.to, promotion: piece });
-            setPendingPromotion(null);
-          }}
-        />
-      )}
     </div>
   );
 }

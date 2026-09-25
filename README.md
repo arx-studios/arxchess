@@ -5,7 +5,8 @@ A chess platform: local pass-and-play, play vs Stockfish, an analysis board, puz
 ## Stack
 
 - Next.js (App Router) + TypeScript + Tailwind CSS
-- `chess.js` for rules/state, `react-chessboard` for the board UI
+- `chess.js` for rules/state
+- Board UI: lichess's [chessground](https://github.com/lichess-org/chessground) (GPLv3) wrapped in `components/board/ChessBoard.tsx`, skinned to look like chess.com (`components/board/chessboard-theme.css`) with chess.com's Neo pieces and Green board image in `public/themes/`. Those images are chess.com's artwork, sourced via [chess.com-boards-and-pieces](https://github.com/GiorgioMegrelli/chess.com-boards-and-pieces) — fine for personal use, but swap them out before publishing or deploying this anywhere public.
 - Stockfish 19 (WASM, lite single-threaded build) running in a Web Worker per engine instance — no server-side engine, no COOP/COEP headers needed
 - `zustand` for per-mode game state
 - A standalone Node WebSocket server (`server/`) for online multiplayer rooms

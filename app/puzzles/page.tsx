@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { ChessBoard } from "@/components/board/ChessBoard";
-import { PromotionDialog } from "@/components/board/PromotionDialog";
 import { usePuzzleStore } from "@/lib/stores/puzzleStore";
 
 function themeLabel(theme: string): string {
@@ -12,7 +11,6 @@ function themeLabel(theme: string): string {
 export default function PuzzlesPage() {
   const { puzzle, fen, turn, checkSquare, lastMove, status, legalDestinations, attemptMove, loadRandom } =
     usePuzzleStore();
-  const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null);
 
   useEffect(() => {
     loadRandom();
@@ -39,8 +37,7 @@ export default function PuzzlesPage() {
             lastMove={lastMove}
             checkSquare={checkSquare}
             legalDestinations={legalDestinations}
-            onMove={(from, to) => attemptMove({ from, to })}
-            onPromotionNeeded={(from, to) => setPendingPromotion({ from, to })}
+            onMove={(from, to, promotion) => attemptMove({ from, to, promotion })}
           />
         </div>
 
@@ -69,17 +66,6 @@ export default function PuzzlesPage() {
           </button>
         </div>
       </div>
-
-      {pendingPromotion && (
-        <PromotionDialog
-          color={puzzle.solverColor}
-          onCancel={() => setPendingPromotion(null)}
-          onSelect={(piece) => {
-            attemptMove({ from: pendingPromotion.from, to: pendingPromotion.to, promotion: piece });
-            setPendingPromotion(null);
-          }}
-        />
-      )}
     </div>
   );
 }
