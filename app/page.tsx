@@ -23,7 +23,7 @@ const MODES: { href: string; title: string; description: string; ready: boolean 
     href: "/analysis",
     title: "Analysis Board",
     description: "Import a PGN and get engine evaluation.",
-    ready: false,
+    ready: true,
   },
   {
     href: "/puzzles",

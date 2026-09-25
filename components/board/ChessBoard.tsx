@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Chessboard, type PieceDropHandlerArgs, type SquareHandlerArgs } from "react-chessboard";
+import { Chessboard, type Arrow, type PieceDropHandlerArgs, type SquareHandlerArgs } from "react-chessboard";
 
 export type LastMoveHighlight = { from: string; to: string } | null;
 
@@ -12,6 +12,7 @@ type ChessBoardProps = {
   turnColor: "w" | "b";
   lastMove?: LastMoveHighlight;
   checkSquare?: string | null;
+  arrows?: Arrow[];
   legalDestinations: (square: string) => { to: string; promotion?: boolean }[];
   onMove: (from: string, to: string) => boolean;
   onPromotionNeeded: (from: string, to: string) => void;
@@ -34,6 +35,7 @@ export function ChessBoard({
   turnColor,
   lastMove,
   checkSquare,
+  arrows,
   legalDestinations,
   onMove,
   onPromotionNeeded,
@@ -111,6 +113,7 @@ export function ChessBoard({
         onPieceDrop: handlePieceDrop,
         onSquareClick: handleSquareClick,
         squareStyles,
+        arrows,
         animationDurationInMs: 180,
         darkSquareStyle: { backgroundColor: "#6d8a52" },
         lightSquareStyle: { backgroundColor: "#eeeed2" },

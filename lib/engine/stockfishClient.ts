@@ -114,6 +114,19 @@ export class StockfishClient {
     limit: { depth?: number; movetimeMs?: number } = { depth: 12 },
   ): Promise<EngineMove> {
     await this.ready();
+    // If a previous search is still in flight, interrupt it and wait for its
+    // bestmove to land before starting the next one — otherwise that stray
+    // bestmove would incorrectly resolve *this* search's promise instead.
+    if (this.pendingBestMove) {
+      const previousResolve = this.pendingBestMove;
+      await new Promise<void>((drainResolve) => {
+        this.pendingBestMove = (move) => {
+          previousResolve(move);
+          drainResolve();
+        };
+        this.send("stop");
+      });
+    }
     this.send(`position fen ${fen}`);
     return new Promise((resolve) => {
       this.pendingBestMove = resolve;
@@ -122,6 +135,7 @@ export class StockfishClient {
     });
   }
 
+  /** Interrupts any in-flight search; its promise still resolves with whatever move it had. */
   stop() {
     this.send("stop");
   }
