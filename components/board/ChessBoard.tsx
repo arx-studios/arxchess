@@ -46,14 +46,16 @@ const FILES = "abcdefgh";
 const ANIMATION_MS = 200;
 
 type Side = "w" | "b";
-type Premove = { from: string; to: string; color: Side };
+type Premove = { from: string; to: string; color: Side; promotion?: string };
 type PendingPromotion = { from: string; to: string; color: Side };
 
 const toColor = (c: Side) => (c === "w" ? "white" : "black") as "white" | "black";
+const sideOf = (piece: string): Side => (piece === piece.toUpperCase() ? "w" : "b");
+const fileIdx = (square: string) => FILES.indexOf(square[0]);
 
-/** Maps each occupied square to "w" or "b". */
-function colorsBySquare(fen: string): Map<string, Side> {
-  const out = new Map<string, Side>();
+/** Square -> FEN piece letter ("P", "n", ...). */
+function readBoard(fen: string): Map<string, string> {
+  const board = new Map<string, string>();
   fen
     .split(" ")[0]
     .split("/")
@@ -64,19 +66,67 @@ function colorsBySquare(fen: string): Map<string, Side> {
           file += Number(ch);
           continue;
         }
-        out.set(`${FILES[file]}${8 - i}`, ch === ch.toUpperCase() ? "w" : "b");
+        board.set(`${FILES[file]}${8 - i}`, ch);
         file++;
       }
     });
-  return out;
+  return board;
+}
+
+function writeBoard(board: Map<string, string>): string {
+  const rows: string[] = [];
+  for (let rank = 8; rank >= 1; rank--) {
+    let row = "";
+    let empty = 0;
+    for (const file of FILES) {
+      const piece = board.get(`${file}${rank}`);
+      if (!piece) {
+        empty++;
+        continue;
+      }
+      if (empty) row += empty;
+      empty = 0;
+      row += piece;
+    }
+    rows.push(empty ? row + empty : row);
+  }
+  return rows.join("/");
+}
+
+/** The position as the user sees it: the real one with the given moves already made. */
+function previewFen(fen: string, moves: Premove[]): string {
+  if (!moves.length) return fen;
+  const board = readBoard(fen);
+  for (const m of moves) {
+    const piece = board.get(m.from);
+    if (!piece) continue;
+    board.delete(m.from);
+    board.set(m.to, m.promotion ? (m.color === "w" ? "Q" : "q") : piece);
+    if (piece.toLowerCase() === "k" && Math.abs(fileIdx(m.to) - fileIdx(m.from)) === 2) {
+      const kingside = fileIdx(m.to) > fileIdx(m.from);
+      const rookFrom = `${kingside ? "h" : "a"}${m.from[1]}`;
+      const rook = board.get(rookFrom);
+      if (rook) {
+        board.delete(rookFrom);
+        board.set(`${kingside ? "f" : "d"}${m.from[1]}`, rook);
+      }
+    }
+  }
+  return [writeBoard(board), ...fen.split(" ").slice(1)].join(" ");
+}
+
+/** Half-moves played so far, from the FEN's move counters. */
+function plyOf(fen: string): number {
+  const parts = fen.split(" ");
+  return (Number(parts[5] ?? 1) - 1) * 2 + (parts[1] === "b" ? 1 : 0);
 }
 
 function computeDests(fen: string, turnColor: Side, legal?: ChessBoardProps["legalDestinations"]) {
   const dests: Dests = new Map();
   const promotions = new Set<string>();
   if (!legal) return { dests, promotions };
-  for (const [from, color] of colorsBySquare(fen)) {
-    if (color !== turnColor) continue;
+  for (const [from, piece] of readBoard(fen)) {
+    if (sideOf(piece) !== turnColor) continue;
     const moves = legal(from);
     if (!moves.length) continue;
     dests.set(from as Key, moves.map((m) => m.to as Key));
@@ -85,24 +135,17 @@ function computeDests(fen: string, turnColor: Side, legal?: ChessBoardProps["leg
   return { dests, promotions };
 }
 
-/** chessground allows castling premoves onto the rook square; the rules engine wants g/c-file. */
-function normalizeCastle(fen: string, from: string, to: string): string {
-  const board = fen.split(" ")[0].split("/");
-  const rank = Number(from[1]);
-  const row = board[8 - rank];
-  let file = 0;
-  let isKing = false;
-  for (const ch of row) {
-    if (/\d/.test(ch)) {
-      file += Number(ch);
-      continue;
-    }
-    if (FILES[file] === from[0]) isKing = ch.toLowerCase() === "k";
-    file++;
-  }
-  const df = FILES.indexOf(to[0]) - FILES.indexOf(from[0]);
-  if (!isKing || to[1] !== from[1] || Math.abs(df) < 2) return to;
-  return `${df > 0 ? "g" : "c"}${from[1]}`;
+function toPremove(board: Map<string, string>, from: string, to: string): Premove | null {
+  const piece = board.get(from);
+  if (!piece) return null;
+  const color = sideOf(piece);
+  const role = piece.toLowerCase();
+  const df = fileIdx(to) - fileIdx(from);
+  // chessground lets a king premove onto its own rook to castle; the rules engine wants the g/c-file square.
+  const dest = role === "k" && to[1] === from[1] && Math.abs(df) >= 2 ? `${df > 0 ? "g" : "c"}${from[1]}` : to;
+  // A premove fires with no one watching, so it can't wait on a picker: auto-queen.
+  const promotes = role === "p" && dest[1] === (color === "w" ? "8" : "1");
+  return { from, to: dest, color, promotion: promotes ? "q" : undefined };
 }
 
 export function ChessBoard(props: ChessBoardProps) {
@@ -119,21 +162,31 @@ export function ChessBoard(props: ChessBoardProps) {
   const appliedFenRef = useRef<string | null>(null);
   const seenFenRef = useRef(fen);
   const seenOrientationRef = useRef(orientation);
-  const premoveRef = useRef<Premove | null>(null);
+  // Premoves waiting to be played, in order, one per turn.
+  const queueRef = useRef<Premove[]>([]);
+  // A move handed to onMove whose resulting position hasn't arrived yet (e.g.
+  // an online move awaiting the server); kept on screen so it doesn't snap back.
+  const sentRef = useRef<Premove | null>(null);
   // Chessground registers its callbacks once, so they read live values from here.
   const live = useRef({ props, canMove, dests, promotions, bottom });
   live.current = { props, canMove, dests, promotions, bottom };
 
   const [pending, setPending] = useState<PendingPromotion | null>(null);
 
-  /** Pushes the current props (plus any queued premove) into chessground. */
+  function shownFen() {
+    const sent = sentRef.current;
+    return previewFen(live.current.props.fen, [...(sent ? [sent] : []), ...queueRef.current]);
+  }
+
+  /** Pushes the current props, with queued premoves shown as already made, into chessground. */
   function sync(forceFen: boolean, animate = true) {
     const ground = groundRef.current;
     if (!ground) return;
     const { props: p, canMove: movable, dests: d, bottom: me } = live.current;
-    const pm = premoveRef.current;
+    const queue = queueRef.current;
+    const display = shownFen();
     // While the other side is to move, the user's (bottom) side stays grabbable
-    // so input on it can be captured as a premove.
+    // so input on it can be queued as premoves.
     const premoveWindow = movable && p.turnColor !== me;
 
     const autoShapes: DrawShape[] = (p.arrows ?? []).map((a) => ({
@@ -151,25 +204,26 @@ export function ChessBoard(props: ChessBoardProps) {
         dests: d,
       },
       highlight: {
-        custom: new Map(pm ? [[pm.from as Key, "current-premove"], [pm.to as Key, "current-premove"]] : []),
+        custom: new Map(queue.flatMap((m) => [[m.from as Key, "current-premove"], [m.to as Key, "current-premove"]])),
       },
       drawable: { autoShapes },
     };
     // Only hand chessground a FEN when the position really changed; re-setting
     // it would interrupt drags and wipe the user's drawn arrows.
-    if (forceFen || appliedFenRef.current !== p.fen) {
-      config.fen = p.fen;
-      appliedFenRef.current = p.fen;
+    if (forceFen || appliedFenRef.current !== display) {
+      config.fen = display;
+      appliedFenRef.current = display;
     }
     if (!animate) config.animation = { enabled: false };
     ground.set(config);
     if (!animate) ground.set({ animation: { enabled: true, duration: ANIMATION_MS } });
 
     if (premoveWindow) {
-      // Premove targets use chessground's own geometry for the waiting side.
+      // Premove targets use chessground's own geometry, from where the user's
+      // pieces appear to be after earlier premoves, so premoves can chain.
       const all: Dests = new Map(d);
-      for (const [sq, color] of colorsBySquare(p.fen)) {
-        if (color !== me) continue;
+      for (const [sq, piece] of readBoard(display)) {
+        if (sideOf(piece) !== me) continue;
         const targets = premoveDests(ground.state, sq as Key);
         if (targets.length) all.set(sq as Key, targets);
       }
@@ -177,22 +231,26 @@ export function ChessBoard(props: ChessBoardProps) {
     }
   }
 
-  function setPremove(pm: Premove | null) {
-    premoveRef.current = pm;
+  function clearQueue() {
+    queueRef.current = [];
   }
 
-  function play(from: string, to: string, promotion?: string) {
-    const ok = live.current.props.onMove?.(from, to, promotion) ?? false;
-    if (!ok) sync(true);
+  /** Hands a move to the parent; returns whether it was accepted. */
+  function play(move: Premove): boolean {
+    const ok = live.current.props.onMove?.(move.from, move.to, move.promotion) ?? false;
+    if (ok) sentRef.current = move;
+    return ok;
   }
 
   function handleUserMove(orig: Key, dest: Key) {
     const { props: p, promotions: promos } = live.current;
-    const mover = colorsBySquare(p.fen).get(orig);
+    const board = readBoard(shownFen());
+    const piece = board.get(orig);
 
-    if (mover && mover !== p.turnColor) {
-      // Not this side's turn: queue it and put the piece back where it really is.
-      setPremove({ from: orig, to: normalizeCastle(p.fen, orig, dest), color: mover });
+    if (piece && sideOf(piece) !== p.turnColor) {
+      // Not this side's turn: queue it. The board already shows the piece on its new square.
+      const premove = toPremove(board, orig, dest);
+      if (premove) queueRef.current = [...queueRef.current, premove];
       sync(true, false);
       return;
     }
@@ -201,7 +259,7 @@ export function ChessBoard(props: ChessBoardProps) {
       setPending({ from: orig, to: dest, color: p.turnColor });
       return;
     }
-    play(orig, dest);
+    if (!play({ from: orig, to: dest, color: p.turnColor })) sync(true);
   }
   const handleUserMoveRef = useRef(handleUserMove);
   handleUserMoveRef.current = handleUserMove;
@@ -239,24 +297,32 @@ export function ChessBoard(props: ChessBoardProps) {
   }, []);
 
   useEffect(() => {
-    const fenChanged = seenFenRef.current !== fen;
+    const previousFen = seenFenRef.current;
+    const fenChanged = previousFen !== fen;
     const flipped = seenOrientationRef.current !== orientation;
     seenFenRef.current = fen;
     seenOrientationRef.current = orientation;
+    if (fenChanged) sentRef.current = null;
 
-    // A queued premove gets exactly one chance: the next position. If it's now
-    // that side's turn and the move is legal, play it; otherwise drop it.
+    const queue = queueRef.current;
     let due: Premove | null = null;
-    const pm = premoveRef.current;
-    if (pm && (!canMove || flipped)) setPremove(null);
-    else if (pm && fenChanged) {
-      setPremove(null);
-      const legal = pm.color === turnColor && dests.get(pm.from as Key)?.includes(pm.to as Key);
-      if (legal) due = pm;
+    if (queue.length && (!canMove || flipped)) clearQueue();
+    else if (queue.length && fenChanged) {
+      if (plyOf(fen) !== plyOf(previousFen) + 1) {
+        // Not a single move forward (new game, undo, navigation...): the queue no longer applies.
+        clearQueue();
+      } else if (queue[0].color === turnColor) {
+        // It's the user's turn: play the next premove, or drop the whole queue if it's illegal now.
+        const next = queue[0];
+        if (dests.get(next.from as Key)?.includes(next.to as Key)) {
+          queueRef.current = queue.slice(1);
+          due = next;
+        } else clearQueue();
+      }
     }
 
+    if (due && !play(due)) clearQueue();
     sync(false);
-    if (due) play(due.from, due.to, promotions.has(due.from + due.to) ? "q" : undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fen, orientation, turnColor, lastMove?.from, lastMove?.to, checkSquare, destsKey, arrowsKey, canMove]);
 
@@ -264,11 +330,11 @@ export function ChessBoard(props: ChessBoardProps) {
     setPending(null);
   }, [fen]);
 
-  // chess.com-style: right-click cancels a queued premove instead of drawing.
+  // chess.com-style: right-click cancels all queued premoves instead of drawing.
   function handleMouseDownCapture(e: React.MouseEvent) {
-    if (e.button !== 2 || !premoveRef.current) return;
-    setPremove(null);
-    sync(false);
+    if (e.button !== 2 || !queueRef.current.length) return;
+    clearQueue();
+    sync(false, false);
     e.stopPropagation();
     e.preventDefault();
   }
@@ -276,7 +342,7 @@ export function ChessBoard(props: ChessBoardProps) {
   function choosePromotion(piece: string) {
     if (!pending) return;
     setPending(null);
-    play(pending.from, pending.to, piece);
+    if (!play({ ...pending, promotion: piece })) sync(true);
   }
 
   function cancelPromotion() {
