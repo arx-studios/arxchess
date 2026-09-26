@@ -89,11 +89,10 @@ export default function PlayAiPage() {
             fen={fen}
             orientation={playerColor === "w" ? "white" : "black"}
             interactive={!result}
-            playerColor={playerColor}
             turnColor={turn}
             lastMove={lastMove}
             checkSquare={checkSquare}
-            legalDestinations={legalDestinations}
+            legalDestinations={(square) => (turn === playerColor ? legalDestinations(square) : [])}
             onMove={(from, to, promotion) => makeMove({ from, to, promotion })}
           />
         </div>

@@ -29,6 +29,7 @@ export default function OnlineRoomPage({ params }: { params: Promise<{ roomId: s
   });
 
   function legalDestinations(square: string) {
+    if (state?.turn !== state?.yourSeat) return [];
     return chess.moves({ square: square as Square, verbose: true }).map((m) => ({ to: m.to, promotion: m.isPromotion() }));
   }
 
@@ -65,7 +66,6 @@ export default function OnlineRoomPage({ params }: { params: Promise<{ roomId: s
             fen={fen}
             orientation={mySeat === "b" ? "black" : "white"}
             interactive={interactive}
-            playerColor={isPlayer ? mySeat : undefined}
             turnColor={state.turn}
             lastMove={state.lastMove}
             checkSquare={checkSquare}
