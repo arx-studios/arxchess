@@ -79,8 +79,21 @@
   background-color: rgba(244, 42, 50, 0.55);
 }
 
-/* Arrows / circles */
-.arx-board .cg-wrap .cg-shapes { opacity: 0.8; }
+/* Right-click square highlights (plain / shift / ctrl / alt), chess.com colors */
+.arx-board cg-board square.mark-default { background-color: rgba(235, 97, 80, 0.8); }
+.arx-board cg-board square.mark-shift { background-color: rgba(172, 206, 89, 0.8); }
+.arx-board cg-board square.mark-ctrl { background-color: rgba(255, 170, 0, 0.8); }
+.arx-board cg-board square.mark-alt { background-color: rgba(82, 176, 220, 0.8); }
+
+/* Arrows: above resting pieces (z 2), below a piece being dragged (z 11) */
+.arx-board .arx-arrows {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 3;
+  pointer-events: none;
+}
 
 /* Coordinates inside the edge squares, chess.com style */
 .arx-board .cg-wrap coords {

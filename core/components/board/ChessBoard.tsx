@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { Chessground } from "@lichess-org/chessground";
 import type { Api } from "@lichess-org/chessground/api";
 import type { Config } from "@lichess-org/chessground/config";
-import type { DrawBrushes, DrawShape } from "@lichess-org/chessground/draw";
 import { premove as premoveDests } from "@lichess-org/chessground/premove";
 import type { Dests, Key } from "@lichess-org/chessground/types";
 import "@lichess-org/chessground/assets/chessground.base.css";
@@ -23,6 +22,7 @@ type ChessBoardProps = {
   turnColor: "w" | "b";
   lastMove?: LastMoveHighlight;
   checkSquare?: string | null;
+  /** Engine/program arrows (e.g. best move), drawn in the same style as user arrows. */
   arrows?: BoardArrow[];
   /**
    * Legal moves the user may play right now. Return [] for pieces the user
@@ -33,15 +33,6 @@ type ChessBoardProps = {
   onMove?: (from: string, to: string, promotion?: string) => boolean;
 };
 
-// Right-click drawing colors (plain, shift, alt, ctrl/meta), chess.com-like.
-const BRUSHES: DrawBrushes = {
-  green: { key: "g", color: "#ffaa00", opacity: 1, lineWidth: 10 },
-  red: { key: "r", color: "#f0503c", opacity: 1, lineWidth: 10 },
-  blue: { key: "b", color: "#52b0dc", opacity: 1, lineWidth: 10 },
-  yellow: { key: "y", color: "#9fcf3f", opacity: 1, lineWidth: 10 },
-  best: { key: "best", color: "#3b82f6", opacity: 1, lineWidth: 10 },
-};
-
 const FILES = "abcdefgh";
 const ANIMATION_MS = 200;
 
@@ -49,9 +40,28 @@ type Side = "w" | "b";
 type Premove = { from: string; to: string; color: Side; promotion?: string };
 type PendingPromotion = { from: string; to: string; color: Side };
 
+// chess.com drawing: right-click a square to highlight it, right-drag to draw an
+// arrow; holding a modifier picks another color. Left-click clears everything.
+type Tint = "default" | "shift" | "ctrl" | "alt";
+type UserArrow = { from: string; to: string; tint: Tint };
+const ARROW_COLORS: Record<Tint | "engine", string> = {
+  default: "#ffaa00",
+  shift: "#9fcf3f",
+  ctrl: "#f8553f",
+  alt: "#48c1f9",
+  engine: "#3b82f6",
+};
+
 const toColor = (c: Side) => (c === "w" ? "white" : "black") as "white" | "black";
 const sideOf = (piece: string): Side => (piece === piece.toUpperCase() ? "w" : "b");
 const fileIdx = (square: string) => FILES.indexOf(square[0]);
+
+function tintOf(e: { altKey: boolean; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }): Tint {
+  if (e.altKey) return "alt";
+  if (e.ctrlKey || e.metaKey) return "ctrl";
+  if (e.shiftKey) return "shift";
+  return "default";
+}
 
 /** Square -> FEN piece letter ("P", "n", ...). */
 function readBoard(fen: string): Map<string, string> {
@@ -155,7 +165,11 @@ export function ChessBoard(props: ChessBoardProps) {
   const bottom: Side = orientation === "white" ? "w" : "b";
   const { dests, promotions } = computeDests(fen, turnColor, canMove ? props.legalDestinations : undefined);
   const destsKey = [...dests].map(([k, v]) => `${k}:${v.join(",")}`).join(";");
-  const arrowsKey = (arrows ?? []).map((a) => a.from + a.to).join(",");
+
+  const [marks, setMarks] = useState<Map<string, Tint>>(() => new Map());
+  const [userArrows, setUserArrows] = useState<UserArrow[]>([]);
+  const [drawing, setDrawing] = useState<UserArrow | null>(null);
+  const marksKey = [...marks].map(([sq, t]) => sq + t).join(",");
 
   const elRef = useRef<HTMLDivElement>(null);
   const groundRef = useRef<Api | null>(null);
@@ -168,8 +182,8 @@ export function ChessBoard(props: ChessBoardProps) {
   // an online move awaiting the server); kept on screen so it doesn't snap back.
   const sentRef = useRef<Premove | null>(null);
   // Chessground registers its callbacks once, so they read live values from here.
-  const live = useRef({ props, canMove, dests, promotions, bottom });
-  live.current = { props, canMove, dests, promotions, bottom };
+  const live = useRef({ props, canMove, dests, promotions, bottom, marks });
+  live.current = { props, canMove, dests, promotions, bottom, marks };
 
   const [pending, setPending] = useState<PendingPromotion | null>(null);
 
@@ -182,18 +196,24 @@ export function ChessBoard(props: ChessBoardProps) {
   function sync(forceFen: boolean, animate = true) {
     const ground = groundRef.current;
     if (!ground) return;
-    const { props: p, canMove: movable, dests: d, bottom: me } = live.current;
-    const queue = queueRef.current;
+    const { props: p, canMove: movable, dests: d, bottom: me, marks: m } = live.current;
     const display = shownFen();
     // While the other side is to move, the user's (bottom) side stays grabbable
     // so input on it can be queued as premoves.
     const premoveWindow = movable && p.turnColor !== me;
 
-    const autoShapes: DrawShape[] = (p.arrows ?? []).map((a) => ({
-      orig: a.from as Key,
-      dest: a.to as Key,
-      brush: "best",
-    }));
+    // Square classes: queued premoves plus right-click highlights (drawn under the pieces).
+    const squareClasses = new Map<Key, string>();
+    const addClass = (sq: string, cls: string) => {
+      const prev = squareClasses.get(sq as Key);
+      squareClasses.set(sq as Key, prev ? `${prev} ${cls}` : cls);
+    };
+    for (const pm of queueRef.current) {
+      addClass(pm.from, "current-premove");
+      addClass(pm.to, "current-premove");
+    }
+    for (const [sq, tint] of m) addClass(sq, `mark-${tint}`);
+
     const config: Config = {
       orientation: p.orientation,
       turnColor: toColor(p.turnColor),
@@ -203,13 +223,10 @@ export function ChessBoard(props: ChessBoardProps) {
         color: movable ? (premoveWindow ? "both" : toColor(p.turnColor)) : undefined,
         dests: d,
       },
-      highlight: {
-        custom: new Map(queue.flatMap((m) => [[m.from as Key, "current-premove"], [m.to as Key, "current-premove"]])),
-      },
-      drawable: { autoShapes },
+      highlight: { custom: squareClasses },
     };
     // Only hand chessground a FEN when the position really changed; re-setting
-    // it would interrupt drags and wipe the user's drawn arrows.
+    // it would interrupt an in-progress drag.
     if (forceFen || appliedFenRef.current !== display) {
       config.fen = display;
       appliedFenRef.current = display;
@@ -283,7 +300,8 @@ export function ChessBoard(props: ChessBoardProps) {
       },
       premovable: { enabled: false },
       draggable: { enabled: true, showGhost: true },
-      drawable: { enabled: true, visible: true, brushes: BRUSHES },
+      // Arrows and square highlights are drawn by this component, chess.com-style.
+      drawable: { enabled: false, visible: false },
     });
     groundRef.current = ground;
     appliedFenRef.current = p.fen;
@@ -324,19 +342,83 @@ export function ChessBoard(props: ChessBoardProps) {
     if (due && !play(due)) clearQueue();
     sync(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fen, orientation, turnColor, lastMove?.from, lastMove?.to, checkSquare, destsKey, arrowsKey, canMove]);
+  }, [fen, orientation, turnColor, lastMove?.from, lastMove?.to, checkSquare, destsKey, canMove, marksKey]);
 
   useEffect(() => {
+    // Like chess.com, drawings belong to the position they were made on.
     setPending(null);
-  }, [fen]);
+    setMarks(new Map());
+    setUserArrows([]);
+    setDrawing(null);
+  }, [fen, orientation]);
 
-  // chess.com-style: right-click cancels all queued premoves instead of drawing.
+  function squareAt(clientX: number, clientY: number): string | null {
+    const boardEl = elRef.current?.querySelector("cg-board");
+    if (!boardEl) return null;
+    const r = boardEl.getBoundingClientRect();
+    const col = Math.floor(((clientX - r.left) / r.width) * 8);
+    const row = Math.floor(((clientY - r.top) / r.height) * 8);
+    if (col < 0 || col > 7 || row < 0 || row > 7) return null;
+    const white = live.current.props.orientation === "white";
+    return `${FILES[white ? col : 7 - col]}${white ? 8 - row : row + 1}`;
+  }
+
+  // Track a right-drag anywhere on the page until the button is released.
+  useEffect(() => {
+    if (!drawing) return;
+    function onMove(e: MouseEvent) {
+      const sq = squareAt(e.clientX, e.clientY);
+      setDrawing((d) => (d && sq && sq !== d.to ? { ...d, to: sq } : d));
+    }
+    function onUp(e: MouseEvent) {
+      if (e.button !== 2) return;
+      const d = drawing;
+      const end = squareAt(e.clientX, e.clientY) ?? d?.to;
+      setDrawing(null);
+      if (!d || !end) return;
+      if (end === d.from) {
+        setMarks((prev) => {
+          const next = new Map(prev);
+          if (next.get(end) === d.tint) next.delete(end);
+          else next.set(end, d.tint);
+          return next;
+        });
+      } else {
+        setUserArrows((prev) => {
+          const same = prev.find((a) => a.from === d.from && a.to === end);
+          const rest = prev.filter((a) => a !== same);
+          return same?.tint === d.tint ? rest : [...rest, { from: d.from, to: end, tint: d.tint }];
+        });
+      }
+    }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawing?.from, drawing?.tint]);
+
   function handleMouseDownCapture(e: React.MouseEvent) {
-    if (e.button !== 2 || !queueRef.current.length) return;
-    clearQueue();
-    sync(false, false);
-    e.stopPropagation();
-    e.preventDefault();
+    if (e.button === 2) {
+      // Right-click is ours: chessground never sees it.
+      e.stopPropagation();
+      e.preventDefault();
+      if (queueRef.current.length) {
+        // chess.com: right-click cancels queued premoves.
+        clearQueue();
+        sync(false, false);
+        return;
+      }
+      const sq = squareAt(e.clientX, e.clientY);
+      if (sq) setDrawing({ from: sq, to: sq, tint: tintOf(e) });
+      return;
+    }
+    if (e.button === 0 && (marks.size || userArrows.length)) {
+      setMarks(new Map());
+      setUserArrows([]);
+    }
   }
 
   function choosePromotion(piece: string) {
@@ -350,9 +432,23 @@ export function ChessBoard(props: ChessBoardProps) {
     sync(true);
   }
 
+  const shownArrows = [
+    ...(arrows ?? []).map((a) => ({ ...a, color: ARROW_COLORS.engine, id: `engine-${a.from}${a.to}` })),
+    ...userArrows.map((a) => ({ ...a, color: ARROW_COLORS[a.tint], id: `user-${a.from}${a.to}` })),
+    // The arrow being dragged out; may duplicate an existing one until released.
+    ...(drawing && drawing.to !== drawing.from
+      ? [{ ...drawing, color: ARROW_COLORS[drawing.tint], id: "drawing" }]
+      : []),
+  ];
+
   return (
-    <div className="arx-board" onMouseDownCapture={handleMouseDownCapture}>
+    <div
+      className="arx-board"
+      onMouseDownCapture={handleMouseDownCapture}
+      onContextMenu={(e) => e.preventDefault()}
+    >
       <div ref={elRef} className="h-full w-full" />
+      <ArrowLayer arrows={shownArrows} orientation={orientation} />
       {pending && (
         <PromotionPicker
           pending={pending}
@@ -362,6 +458,68 @@ export function ChessBoard(props: ChessBoardProps) {
         />
       )}
     </div>
+  );
+}
+
+// Arrow proportions in square units, matched to chess.com.
+const SHAFT_WIDTH = 0.22;
+const HEAD_WIDTH = 0.5;
+const HEAD_LENGTH = 0.45;
+
+function ArrowLayer({
+  arrows,
+  orientation,
+}: {
+  arrows: { from: string; to: string; color: string; id: string }[];
+  orientation: "white" | "black";
+}) {
+  if (!arrows.length) return null;
+  const center = (sq: string) => {
+    const f = fileIdx(sq);
+    const r = Number(sq[1]);
+    return orientation === "white" ? { x: f + 0.5, y: 8 - r + 0.5 } : { x: 7 - f + 0.5, y: r - 1 + 0.5 };
+  };
+
+  return (
+    <svg className="arx-arrows" viewBox="0 0 8 8" aria-hidden>
+      {arrows.map((a) => {
+        const start = center(a.from);
+        const end = center(a.to);
+        const dx = Math.abs(fileIdx(a.to) - fileIdx(a.from));
+        const dy = Math.abs(Number(a.to[1]) - Number(a.from[1]));
+        const knight = (dx === 1 && dy === 2) || (dx === 2 && dy === 1);
+        // Knight arrows bend: the long leg first, then the short one.
+        const points = knight
+          ? [start, dy > dx ? { x: start.x, y: end.y } : { x: end.x, y: start.y }, end]
+          : [start, end];
+        const prev = points[points.length - 2];
+        const len = Math.hypot(end.x - prev.x, end.y - prev.y);
+        const ux = (end.x - prev.x) / len;
+        const uy = (end.y - prev.y) / len;
+        const base = { x: end.x - ux * HEAD_LENGTH, y: end.y - uy * HEAD_LENGTH };
+        const shaft = [...points.slice(0, -1), { x: base.x + ux * 0.01, y: base.y + uy * 0.01 }];
+        const half = HEAD_WIDTH / 2;
+        const head = [
+          `${end.x},${end.y}`,
+          `${base.x - uy * half},${base.y + ux * half}`,
+          `${base.x + uy * half},${base.y - ux * half}`,
+        ].join(" ");
+        return (
+          // Group opacity keeps the shaft/head overlap from darkening.
+          <g key={a.id} opacity={0.8}>
+            <polyline
+              points={shaft.map((p) => `${p.x},${p.y}`).join(" ")}
+              fill="none"
+              stroke={a.color}
+              strokeWidth={SHAFT_WIDTH}
+              strokeLinejoin="miter"
+              strokeLinecap="butt"
+            />
+            <polygon points={head} fill={a.color} />
+          </g>
+        );
+      })}
+    </svg>
   );
 }
 
