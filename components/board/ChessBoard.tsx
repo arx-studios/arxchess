@@ -5,7 +5,7 @@ import { Chessground } from "@lichess-org/chessground";
 import type { Api } from "@lichess-org/chessground/api";
 import type { Config } from "@lichess-org/chessground/config";
 import type { DrawBrushes, DrawShape } from "@lichess-org/chessground/draw";
-import type { Dests, Key } from "@lichess-org/chessground/types";
+import type { Dests, Key, MoveMetadata } from "@lichess-org/chessground/types";
 import "@lichess-org/chessground/assets/chessground.base.css";
 import "./chessboard-theme.css";
 
@@ -22,6 +22,13 @@ type ChessBoardProps = {
   lastMove?: LastMoveHighlight;
   checkSquare?: string | null;
   arrows?: BoardArrow[];
+  /**
+   * The side this user plays, when the opponent is someone else (engine or
+   * online player). Enables premoves: the user can queue a move during the
+   * opponent's turn and it's played the moment it becomes theirs.
+   * Omit for boards where one person moves both sides.
+   */
+  playerColor?: "w" | "b";
   /** Omit both for a read-only/spectator board (e.g. Arena mode). */
   legalDestinations?: (square: string) => Destination[];
   onMove?: (from: string, to: string, promotion?: string) => boolean;
@@ -75,10 +82,15 @@ function computeDests(fen: string, turnColor: "w" | "b", legal?: ChessBoardProps
 type PendingPromotion = { from: string; to: string; color: "w" | "b" };
 
 export function ChessBoard(props: ChessBoardProps) {
-  const { fen, orientation, interactive = true, turnColor, lastMove, checkSquare, arrows } = props;
+  const { fen, orientation, interactive = true, turnColor, lastMove, checkSquare, arrows, playerColor } = props;
 
   const canMove = interactive && !!props.onMove && !!props.legalDestinations;
-  const { dests, promotions } = computeDests(fen, turnColor, canMove ? props.legalDestinations : undefined);
+  const myTurn = !playerColor || playerColor === turnColor;
+  const { dests, promotions } = computeDests(
+    fen,
+    turnColor,
+    canMove && myTurn ? props.legalDestinations : undefined,
+  );
   const destsKey = [...dests].map(([k, v]) => `${k}:${v.join(",")}`).join(";");
   const arrowsKey = (arrows ?? []).map((a) => a.from + a.to).join(",");
 
@@ -103,7 +115,10 @@ export function ChessBoard(props: ChessBoardProps) {
       turnColor: toColor(p.turnColor),
       lastMove: p.lastMove ? [p.lastMove.from as Key, p.lastMove.to as Key] : undefined,
       check: !!p.checkSquare,
-      movable: { color: movable ? toColor(p.turnColor) : undefined, dests: d },
+      // With a fixed playerColor the user's side stays movable during the
+      // opponent's turn; chessground then treats their input as a premove.
+      movable: { color: movable ? toColor(p.playerColor ?? p.turnColor) : undefined, dests: d },
+      premovable: { enabled: movable && !!p.playerColor },
       drawable: { autoShapes },
     };
     // Only hand chessground a FEN when the position really changed; re-setting
@@ -119,9 +134,14 @@ export function ChessBoard(props: ChessBoardProps) {
     groundRef.current?.set(buildConfig(true));
   }
 
-  function handleUserMove(orig: Key, dest: Key) {
+  function handleUserMove(orig: Key, dest: Key, meta?: MoveMetadata) {
     const { props: p, promotions: promos } = live.current;
     if (promos.has(orig + dest)) {
+      // A premove fires with no one watching, so it can't wait on a picker: auto-queen.
+      if (meta?.premove) {
+        if (!(p.onMove?.(orig, dest, "q") ?? false)) resync();
+        return;
+      }
       setPending({ from: orig, to: dest, color: p.turnColor });
       return;
     }
@@ -145,14 +165,13 @@ export function ChessBoard(props: ChessBoardProps) {
         free: false,
         showDests: true,
         rookCastle: false,
-        events: { after: (orig, dest) => handleUserMoveRef.current(orig, dest) },
+        events: { after: (orig, dest, meta) => handleUserMoveRef.current(orig, dest, meta) },
       },
-      premovable: { enabled: false },
+      premovable: { enabled: false, showDests: true, castle: true },
       draggable: { enabled: true, showGhost: true },
       drawable: { enabled: true, visible: true, brushes: BRUSHES },
     });
-    groundRef.current = ground;
-    appliedFenRef.current = p.fen;
+    groundRef.current = ground;    appliedFenRef.current = p.fen;
     ground.set(buildConfig(false));
     return () => {
       ground.destroy();
@@ -163,9 +182,22 @@ export function ChessBoard(props: ChessBoardProps) {
   }, []);
 
   useEffect(() => {
-    groundRef.current?.set(buildConfig(false));
+    const ground = groundRef.current;
+    if (!ground) return;
+    ground.set(buildConfig(false));
+    if (!canMove) ground.cancelPremove();
+    else if (playerColor && myTurn) ground.playPremove();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fen, orientation, turnColor, lastMove?.from, lastMove?.to, checkSquare, destsKey, arrowsKey, canMove]);
+  }, [fen, orientation, turnColor, lastMove?.from, lastMove?.to, checkSquare, destsKey, arrowsKey, canMove, playerColor]);
+
+  // chess.com-style: right-click cancels a queued premove instead of drawing.
+  function handleMouseDownCapture(e: React.MouseEvent) {
+    const ground = groundRef.current;
+    if (e.button !== 2 || !ground?.state.premovable.current) return;
+    ground.cancelPremove();
+    e.stopPropagation();
+    e.preventDefault();
+  }
 
   useEffect(() => {
     setPending(null);
@@ -184,7 +216,7 @@ export function ChessBoard(props: ChessBoardProps) {
   }
 
   return (
-    <div className="arx-board">
+    <div className="arx-board" onMouseDownCapture={handleMouseDownCapture}>
       <div ref={elRef} className="h-full w-full" />
       {pending && (
         <PromotionPicker

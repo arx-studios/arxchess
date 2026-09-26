@@ -75,6 +75,26 @@
   box-shadow: inset 0 0 0 0.55cqw rgba(255, 255, 255, 0.7);
 }
 
+/* Premoves: queued move squares in chess.com red; destinations while picking one */
+.arx-board cg-board square.current-premove {
+  background-color: rgba(244, 42, 50, 0.55);
+}
+
+.arx-board cg-board square.premove-dest {
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.14) 23%, rgba(0, 0, 0, 0) 24%);
+  pointer-events: auto;
+}
+
+.arx-board cg-board square.premove-dest.oc {
+  background: radial-gradient(
+    circle,
+    rgba(0, 0, 0, 0) 56%,
+    rgba(0, 0, 0, 0.14) 57%,
+    rgba(0, 0, 0, 0.14) 70%,
+    rgba(0, 0, 0, 0) 71%
+  );
+}
+
 /* Arrows / circles */
 .arx-board .cg-wrap .cg-shapes { opacity: 0.8; }
 

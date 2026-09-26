@@ -49,7 +49,7 @@ export default function OnlineRoomPage({ params }: { params: Promise<{ roomId: s
 
   const mySeat = state.yourSeat;
   const isPlayer = mySeat === "w" || mySeat === "b";
-  const interactive = isPlayer && state.turn === mySeat && !state.result;
+  const interactive = isPlayer && !state.result;
   const opponentConnected = isPlayer ? state.connected[mySeat === "w" ? "b" : "w"] : true;
 
   return (
@@ -65,6 +65,7 @@ export default function OnlineRoomPage({ params }: { params: Promise<{ roomId: s
             fen={fen}
             orientation={mySeat === "b" ? "black" : "white"}
             interactive={interactive}
+            playerColor={isPlayer ? mySeat : undefined}
             turnColor={state.turn}
             lastMove={state.lastMove}
             checkSquare={checkSquare}

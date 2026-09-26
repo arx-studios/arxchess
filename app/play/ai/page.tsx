@@ -75,7 +75,6 @@ export default function PlayAiPage() {
     engineRef.current?.newGame();
   }
 
-  const humansTurn = turn === playerColor && !result;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
@@ -89,7 +88,8 @@ export default function PlayAiPage() {
           <ChessBoard
             fen={fen}
             orientation={playerColor === "w" ? "white" : "black"}
-            interactive={humansTurn}
+            interactive={!result}
+            playerColor={playerColor}
             turnColor={turn}
             lastMove={lastMove}
             checkSquare={checkSquare}
