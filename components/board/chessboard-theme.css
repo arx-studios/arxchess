@@ -7,7 +7,6 @@
   aspect-ratio: 1 / 1;
   border-radius: 4px;
   overflow: visible;
-  background: url("/themes/boards/green.png") center / cover;
   touch-action: none;
 }
 
