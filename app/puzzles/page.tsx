@@ -1,71 +1,127 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import { CircleCheck, CircleX, Flame, Target } from "lucide-react";
 import { ChessBoard } from "@/components/board/ChessBoard";
+import { GameLayout } from "@/components/game/GameLayout";
+import { PlayerCard } from "@/components/game/PlayerCard";
+import { PanelFooter, PanelHeader, PanelSection } from "@/components/game/Panel";
+import { Button } from "@/components/ui/Button";
 import { usePuzzleStore } from "@/lib/stores/puzzleStore";
+import { displayName, useSettings } from "@/lib/settings/store";
+import { playSound } from "@/lib/sound/sounds";
+
+const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 function themeLabel(theme: string): string {
-  return theme.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
+  return theme.replace(/([A-Z])/g, " $1").replace(/(\d+)/g, " $1").replace(/\s+/g, " ").replace(/^./, (c) => c.toUpperCase());
+}
+
+/** "mateIn2" -> "find mate in 2"; otherwise a generic prompt. */
+function objective(themes: string[]): string {
+  const mate = themes.find((t) => /^mateIn\d+$/.test(t));
+  return mate ? `find mate in ${mate.slice(6)}` : "find the best move";
 }
 
 export default function PuzzlesPage() {
   const { puzzle, fen, turn, checkSquare, lastMove, status, legalDestinations, attemptMove, loadRandom } =
     usePuzzleStore();
+  const playerName = useSettings((s) => s.playerName);
+  const [streak, setStreak] = useState(0);
+  const missed = useRef(false);
 
   useEffect(() => {
     loadRandom();
   }, [loadRandom]);
 
-  if (!puzzle) {
-    return <div className="mx-auto max-w-5xl px-4 py-8">Loading puzzle…</div>;
+  function handleMove(from: string, to: string, promotion?: string) {
+    const ok = attemptMove({ from, to, promotion });
+    const now = usePuzzleStore.getState().status;
+    if (now === "incorrect") {
+      missed.current = true;
+      setStreak(0);
+    } else if (now === "complete") {
+      playSound("game-end");
+      if (!missed.current) setStreak((s) => s + 1);
+    } else if (ok) playSound("move");
+    return ok;
   }
 
-  const toMove = puzzle.solverColor === "w" ? "White" : "Black";
+  function nextPuzzle() {
+    missed.current = false;
+    loadRandom();
+  }
+
+  const solver = puzzle?.solverColor ?? "w";
+  const toMove = solver === "w" ? "White" : "Black";
+
+  const prompt =
+    status === "complete"
+      ? { tone: "bg-accent text-on-accent", icon: CircleCheck, title: "Solved!", body: "Nicely done." }
+      : status === "incorrect"
+        ? { tone: "bg-danger text-on-accent", icon: CircleX, title: "Not quite", body: "That's not it — try again." }
+        : {
+            tone: "bg-raised text-fg",
+            icon: Target,
+            title: `${toMove} to play`,
+            body: puzzle ? `${objective(puzzle.themes).replace(/^./, (c) => c.toUpperCase())}.` : "Loading…",
+          };
+  const PromptIcon = prompt.icon;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="text-xl font-semibold">Puzzles</h1>
-      <p className="mt-1 text-sm text-neutral-500">Find the best move for {toMove}.</p>
-
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,480px)_260px]">
-        <div className="mx-auto w-full max-w-[480px]">
-          <ChessBoard
-            fen={fen}
-            orientation={puzzle.solverColor === "w" ? "white" : "black"}
-            interactive={status !== "complete"}
-            turnColor={turn}
-            lastMove={lastMove}
-            checkSquare={checkSquare}
-            legalDestinations={legalDestinations}
-            onMove={(from, to, promotion) => attemptMove({ from, to, promotion })}
-          />
-        </div>
-
-        <div className="flex flex-col gap-4">
-          <div className="rounded-md border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-700">
-            <p className="font-medium">Rating {puzzle.rating}</p>
-            <p className="mt-0.5 text-neutral-500">{puzzle.themes.map(themeLabel).join(" · ")}</p>
-          </div>
-
-          {status === "incorrect" && (
-            <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300">
-              Not quite — try again.
-            </div>
+    <GameLayout
+      top={
+        <div className="flex h-12 items-center gap-2">
+          {puzzle && (
+            <>
+              <span className="tabular rounded-sm bg-raised px-2 py-1 text-label font-bold">{puzzle.rating}</span>
+              {puzzle.themes.map((t) => (
+                <span key={t} className="rounded-sm bg-raised/60 px-2 py-1 text-caption text-fg-secondary">
+                  {themeLabel(t)}
+                </span>
+              ))}
+            </>
           )}
-          {status === "complete" && (
-            <div className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
-              Solved!
-            </div>
-          )}
-
-          <button
-            onClick={loadRandom}
-            className="rounded-md border border-neutral-200 px-3 py-1.5 text-sm hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
-          >
-            Next puzzle
-          </button>
         </div>
-      </div>
-    </div>
+      }
+      bottom={<PlayerCard name={displayName(playerName)} color={solver} fen={fen} showCaptures={false} />}
+      board={
+        <ChessBoard
+          fen={puzzle ? fen : START_FEN}
+          orientation={solver === "w" ? "white" : "black"}
+          interactive={!!puzzle && status !== "complete"}
+          turnColor={turn}
+          lastMove={lastMove}
+          checkSquare={checkSquare}
+          legalDestinations={legalDestinations}
+          onMove={handleMove}
+        />
+      }
+      panel={
+        <>
+          <PanelHeader title="Puzzles" status="Find the mating move" />
+          <PanelSection>
+            <div className={`flex items-start gap-3 rounded-lg px-4 py-4 transition-colors ${prompt.tone}`}>
+              <PromptIcon size={28} strokeWidth={1.75} className="mt-0.5 shrink-0" />
+              <div>
+                <p className="text-title font-bold">{prompt.title}</p>
+                <p className="text-body opacity-90">{prompt.body}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-body text-fg-secondary">
+              <Flame size={20} strokeWidth={1.75} className={streak ? "text-warning" : ""} />
+              <span>
+                Streak <span className="tabular font-bold text-fg">{streak}</span>
+              </span>
+            </div>
+          </PanelSection>
+          <PanelFooter>
+            <Button variant="primary" size="lg" onClick={nextPuzzle}>
+              {status === "complete" ? "Next puzzle" : "Skip puzzle"}
+            </Button>
+          </PanelFooter>
+        </>
+      }
+    />
   );
 }

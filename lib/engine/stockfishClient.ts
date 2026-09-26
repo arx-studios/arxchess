@@ -7,7 +7,9 @@ export type EngineInfo = {
   pv?: string[];
 };
 
-function parseUciMove(uci: string): EngineMove {
+/** null for "(none)" — what Stockfish answers in checkmate or stalemate. */
+function parseUciMove(uci: string): EngineMove | null {
+  if (!/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(uci)) return null;
   return {
     from: uci.slice(0, 2),
     to: uci.slice(2, 4),
@@ -42,7 +44,7 @@ export class StockfishClient {
   private worker: Worker;
   private readyPromise: Promise<void>;
   private resolveReady!: () => void;
-  private pendingBestMove: ((move: EngineMove) => void) | null = null;
+  private pendingBestMove: ((move: EngineMove | null) => void) | null = null;
 
   onInfo: ((info: EngineInfo) => void) | null = null;
 
@@ -112,7 +114,7 @@ export class StockfishClient {
   async getBestMove(
     fen: string,
     limit: { depth?: number; movetimeMs?: number } = { depth: 12 },
-  ): Promise<EngineMove> {
+  ): Promise<EngineMove | null> {
     await this.ready();
     // If a previous search is still in flight, interrupt it and wait for its
     // bestmove to land before starting the next one — otherwise that stray

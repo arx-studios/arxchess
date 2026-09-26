@@ -19,11 +19,13 @@ export function whiteWinPercent(whiteScore: EngineScore): number {
   return Math.max(0, Math.min(100, 50 + 50 * winChance));
 }
 
-export function formatWhiteScore(whiteScore: EngineScore): string {
+/** "+0.29", "M3"; `compact` gives the eval bar's short form ("0.3", like chess.com). */
+export function formatWhiteScore(whiteScore: EngineScore, compact = false): string {
   if (whiteScore.scoreMate != null) {
     return `M${Math.abs(whiteScore.scoreMate)}`;
   }
   if (whiteScore.scoreCp == null) return "—";
   const pawns = whiteScore.scoreCp / 100;
+  if (compact) return Math.abs(pawns).toFixed(1);
   return `${pawns >= 0 ? "+" : ""}${pawns.toFixed(2)}`;
 }

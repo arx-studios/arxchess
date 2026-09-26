@@ -1,11 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Bot, Pause, Play, RotateCcw } from "lucide-react";
 import { ChessBoard } from "@/components/board/ChessBoard";
-import { MoveList } from "@/components/board/MoveList";
-import { GameStatusBanner } from "@/components/board/GameStatusBanner";
+import { GameLayout } from "@/components/game/GameLayout";
+import { PlayerCard } from "@/components/game/PlayerCard";
+import { MoveList } from "@/components/game/MoveList";
+import { PanelFooter, PanelHeader, PanelSection } from "@/components/game/Panel";
+import { Button } from "@/components/ui/Button";
+import { IconButton } from "@/components/ui/IconButton";
+import { ChipGroup } from "@/components/ui/Chip";
 import { StockfishClient } from "@/lib/engine/stockfishClient";
 import { useArenaGameStore } from "@/lib/stores/arenaGameStore";
+import { statusLine } from "@/lib/chess/status";
+import { useGameSounds } from "@/lib/sound/useGameSounds";
+import type { PieceColor } from "@/lib/chess/types";
 
 const DIFFICULTIES: { label: string; elo: number }[] = [
   { label: "Beginner", elo: 1320 },
@@ -16,63 +25,43 @@ const DIFFICULTIES: { label: string; elo: number }[] = [
 ];
 
 const SPEEDS = [
-  { label: "Fast", ms: 200 },
-  { label: "Normal", ms: 500 },
-  { label: "Slow", ms: 1200 },
+  { value: 200, label: "Fast" },
+  { value: 500, label: "Normal" },
+  { value: 1200, label: "Slow" },
 ];
 
-function EngineConfig({
-  label,
-  eloIndex,
-  onChange,
-  ready,
-}: {
-  label: string;
-  eloIndex: number;
-  onChange: (index: number) => void;
-  ready: boolean;
-}) {
+function LevelPicker({ value, onChange, label }: { value: number; onChange: (i: number) => void; label: string }) {
   return (
-    <div>
-      <p className="mb-1 text-xs font-medium uppercase tracking-wide text-neutral-500">
-        {label} {!ready && "(loading…)"}
-      </p>
-      <div className="flex flex-wrap gap-2">
-        {DIFFICULTIES.map((d, i) => (
-          <button
-            key={d.label}
-            onClick={() => onChange(i)}
-            className={`rounded-md border px-2.5 py-1 text-xs ${
-              eloIndex === i
-                ? "border-blue-400 bg-blue-50 dark:bg-blue-950/40"
-                : "border-neutral-200 dark:border-neutral-700"
-            }`}
-          >
-            {d.label}
-          </button>
-        ))}
-      </div>
-    </div>
+    <select
+      aria-label={label}
+      value={value}
+      onChange={(e) => onChange(Number(e.target.value))}
+      className="h-9 cursor-pointer rounded-md bg-raised px-2 text-label font-semibold text-fg outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-accent-fg"
+    >
+      {DIFFICULTIES.map((d, i) => (
+        <option key={d.label} value={i}>
+          {d.label} · {d.elo}
+        </option>
+      ))}
+    </select>
   );
 }
 
 export default function ArenaPage() {
   const { fen, sanHistory, turn, isCheck, checkSquare, result, lastMove, makeMove, reset } = useArenaGameStore();
 
-  const [whiteEloIndex, setWhiteEloIndex] = useState(1);
-  const [blackEloIndex, setBlackEloIndex] = useState(3);
-  const [speedIndex, setSpeedIndex] = useState(1);
+  const [levels, setLevels] = useState<Record<PieceColor, number>>({ w: 1, b: 3 });
+  const [speed, setSpeed] = useState(500);
   const [running, setRunning] = useState(false);
   const [ready, setReady] = useState({ w: false, b: false });
+  const [score, setScore] = useState({ w: 0, draws: 0, b: 0 });
 
-  const whiteEngineRef = useRef<StockfishClient | null>(null);
-  const blackEngineRef = useRef<StockfishClient | null>(null);
+  const engines = useRef<Record<PieceColor, StockfishClient | null>>({ w: null, b: null });
 
   useEffect(() => {
     const white = new StockfishClient();
     const black = new StockfishClient();
-    whiteEngineRef.current = white;
-    blackEngineRef.current = black;
+    engines.current = { w: white, b: black };
     white.ready().then(() => setReady((r) => ({ ...r, w: true })));
     black.ready().then(() => setReady((r) => ({ ...r, b: true })));
     return () => {
@@ -82,100 +71,116 @@ export default function ArenaPage() {
   }, []);
 
   useEffect(() => {
-    if (!ready.w) return;
-    whiteEngineRef.current?.setStrength({ elo: DIFFICULTIES[whiteEloIndex].elo });
-  }, [ready.w, whiteEloIndex]);
+    if (ready.w) engines.current.w?.setStrength({ elo: DIFFICULTIES[levels.w].elo });
+  }, [ready.w, levels.w]);
 
   useEffect(() => {
-    if (!ready.b) return;
-    blackEngineRef.current?.setStrength({ elo: DIFFICULTIES[blackEloIndex].elo });
-  }, [ready.b, blackEloIndex]);
+    if (ready.b) engines.current.b?.setStrength({ elo: DIFFICULTIES[levels.b].elo });
+  }, [ready.b, levels.b]);
 
   useEffect(() => {
     if (!running || result) return;
-    const engine = turn === "w" ? whiteEngineRef.current : blackEngineRef.current;
-    const engineReady = turn === "w" ? ready.w : ready.b;
-    if (!engine || !engineReady) return;
+    const engine = engines.current[turn];
+    if (!engine || !ready[turn]) return;
 
     let cancelled = false;
-    engine.getBestMove(fen, { movetimeMs: SPEEDS[speedIndex].ms }).then((move) => {
-      if (cancelled) return;
+    engine.getBestMove(fen, { movetimeMs: speed }).then((move) => {
+      if (cancelled || !move) return;
       makeMove(move);
     });
     return () => {
       cancelled = true;
     };
-  }, [fen, turn, result, running, speedIndex, ready, makeMove]);
+  }, [fen, turn, result, running, speed, ready, makeMove]);
 
-  function handleNewGame() {
+  // Tally each finished game once.
+  const counted = useRef<typeof result>(null);
+  useEffect(() => {
+    if (!result || counted.current === result) return;
+    counted.current = result;
+    setRunning(false);
+    setScore((s) =>
+      "winner" in result ? { ...s, [result.winner]: s[result.winner] + 1 } : { ...s, draws: s.draws + 1 },
+    );
+  }, [result]);
+
+  useGameSounds(sanHistory, !!result);
+
+  function newGame() {
     reset();
-    whiteEngineRef.current?.newGame();
-    blackEngineRef.current?.newGame();
+    engines.current.w?.newGame();
+    engines.current.b?.newGame();
   }
 
+  const card = (color: PieceColor) => (
+    <PlayerCard
+      name={`Stockfish ${color === "w" ? "A" : "B"}`}
+      detail={color === "w" ? "White" : "Black"}
+      icon={Bot}
+      color={color}
+      fen={fen}
+      extra={
+        <LevelPicker
+          label={`${color === "w" ? "White" : "Black"} engine level`}
+          value={levels[color]}
+          onChange={(i) => setLevels((l) => ({ ...l, [color]: i }))}
+        />
+      }
+    />
+  );
+
+  const status = !ready.w || !ready.b ? "Loading engines…" : result || running ? statusLine(turn, isCheck, result) : "Paused";
+
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="text-xl font-semibold">Arena</h1>
-      <p className="mt-1 text-sm text-neutral-500">
-        Two independently configured Stockfish instances play each other.
-      </p>
-
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,480px)_260px]">
-        <div className="mx-auto w-full max-w-[480px]">
-          <ChessBoard
-            fen={fen}
-            orientation="white"
-            interactive={false}
-            turnColor={turn}
-            lastMove={lastMove}
-            checkSquare={checkSquare}
-          />
-        </div>
-
-        <div className="flex flex-col gap-4">
-          <GameStatusBanner result={result} isCheck={isCheck} turn={turn} />
-
-          <MoveList sanHistory={sanHistory} />
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setRunning((r) => !r)}
-              disabled={!!result}
-              className="rounded-md border border-neutral-200 px-3 py-1.5 text-sm hover:bg-neutral-100 disabled:opacity-40 dark:border-neutral-700 dark:hover:bg-neutral-800"
-            >
-              {running ? "Pause" : "Start"}
-            </button>
-            <button
-              onClick={handleNewGame}
-              className="rounded-md border border-neutral-200 px-3 py-1.5 text-sm hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
-            >
-              New game
-            </button>
-          </div>
-
-          <EngineConfig label="White" eloIndex={whiteEloIndex} onChange={setWhiteEloIndex} ready={ready.w} />
-          <EngineConfig label="Black" eloIndex={blackEloIndex} onChange={setBlackEloIndex} ready={ready.b} />
-
-          <div>
-            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-neutral-500">Speed</p>
-            <div className="flex flex-wrap gap-2">
-              {SPEEDS.map((s, i) => (
-                <button
-                  key={s.label}
-                  onClick={() => setSpeedIndex(i)}
-                  className={`rounded-md border px-2.5 py-1 text-xs ${
-                    speedIndex === i
-                      ? "border-blue-400 bg-blue-50 dark:bg-blue-950/40"
-                      : "border-neutral-200 dark:border-neutral-700"
-                  }`}
-                >
-                  {s.label}
-                </button>
+    <GameLayout
+      top={card("b")}
+      bottom={card("w")}
+      board={
+        <ChessBoard fen={fen} orientation="white" interactive={false} turnColor={turn} lastMove={lastMove} checkSquare={checkSquare} />
+      }
+      panel={
+        <>
+          <PanelHeader title="Arena" status={status} />
+          <PanelSection className="border-b border-line">
+            <div className="grid grid-cols-3 overflow-hidden rounded-md bg-raised text-center">
+              {[
+                { label: "Stockfish A", value: score.w },
+                { label: "Draws", value: score.draws },
+                { label: "Stockfish B", value: score.b },
+              ].map((s) => (
+                <div key={s.label} className="px-2 py-2">
+                  <p className="tabular text-title font-bold">{s.value}</p>
+                  <p className="text-caption text-fg-muted">{s.label}</p>
+                </div>
               ))}
             </div>
-          </div>
-        </div>
-      </div>
-    </div>
+            <ChipGroup label="Speed" options={SPEEDS} value={speed} onChange={setSpeed} />
+          </PanelSection>
+          <MoveList sanHistory={sanHistory} />
+          <PanelFooter>
+            <div className="flex gap-1">
+              <IconButton icon={RotateCcw} label="New game" onClick={newGame} />
+            </div>
+            {result ? (
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={() => {
+                  newGame();
+                  setRunning(true);
+                }}
+              >
+                <Play size={18} strokeWidth={2} /> Next game
+              </Button>
+            ) : (
+              <Button variant="primary" size="lg" onClick={() => setRunning((r) => !r)} disabled={!ready.w || !ready.b}>
+                {running ? <Pause size={18} strokeWidth={2} /> : <Play size={18} strokeWidth={2} />}
+                {running ? "Pause" : sanHistory.length ? "Resume" : "Start"}
+              </Button>
+            )}
+          </PanelFooter>
+        </>
+      }
+    />
   );
 }

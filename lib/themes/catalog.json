@@ -1,0 +1,425 @@
+{
+  "boards": [
+    {
+      "id": "green",
+      "name": "Green",
+      "file": "green.png",
+      "light": "#ebecd0",
+      "dark": "#739552"
+    },
+    {
+      "id": "wood",
+      "name": "Wood",
+      "file": "wood.png",
+      "light": "#c4a572",
+      "dark": "#7e5736"
+    },
+    {
+      "id": "glass",
+      "name": "Glass",
+      "file": "glass.png",
+      "light": "#717b8e",
+      "dark": "#292f3d"
+    },
+    {
+      "id": "brown",
+      "name": "Brown",
+      "file": "brown.png",
+      "light": "#edd6b0",
+      "dark": "#b88762"
+    },
+    {
+      "id": "icy-sea",
+      "name": "Icy Sea",
+      "file": "icy-sea.png",
+      "light": "#d3dfe5",
+      "dark": "#80a1b5"
+    },
+    {
+      "id": "newspaper",
+      "name": "Newspaper",
+      "file": "newspaper.png",
+      "light": "#d0cec5",
+      "dark": "#a3a29b"
+    },
+    {
+      "id": "walnut",
+      "name": "Walnut",
+      "file": "walnut.png",
+      "light": "#ba9e7a",
+      "dark": "#74533a"
+    },
+    {
+      "id": "sky",
+      "name": "Sky",
+      "file": "sky.png",
+      "light": "#f0f1f0",
+      "dark": "#c4d8e4"
+    },
+    {
+      "id": "lolz",
+      "name": "Lolz",
+      "file": "lolz.png",
+      "light": "#d9e4e4",
+      "dark": "#9aa2a0"
+    },
+    {
+      "id": "stone",
+      "name": "Stone",
+      "file": "stone.png",
+      "light": "#b2aea7",
+      "dark": "#4f4d4c"
+    },
+    {
+      "id": "bases",
+      "name": "Bases",
+      "file": "bases.png",
+      "light": "#efc99d",
+      "dark": "#c66f3b"
+    },
+    {
+      "id": "8-bit",
+      "name": "8-Bit",
+      "file": "8-bit.png",
+      "light": "#f3f3f4",
+      "dark": "#6a9b41"
+    },
+    {
+      "id": "marble",
+      "name": "Marble",
+      "file": "marble.png",
+      "light": "#c4bca7",
+      "dark": "#726d67"
+    },
+    {
+      "id": "purple",
+      "name": "Purple",
+      "file": "purple.png",
+      "light": "#f0f1f0",
+      "dark": "#8476ba"
+    },
+    {
+      "id": "overlay",
+      "name": "Overlay",
+      "file": "overlay.png",
+      "light": "#efefef",
+      "dark": "#ababab"
+    },
+    {
+      "id": "metal",
+      "name": "Metal",
+      "file": "metal.png",
+      "light": "#d9d9d9",
+      "dark": "#757575"
+    },
+    {
+      "id": "tournament",
+      "name": "Tournament",
+      "file": "tournament.png",
+      "light": "#eaeae7",
+      "dark": "#32674b"
+    },
+    {
+      "id": "dash",
+      "name": "Dash",
+      "file": "dash.png",
+      "light": "#bb8e53",
+      "dark": "#6b3927"
+    },
+    {
+      "id": "burled-wood",
+      "name": "Burled Wood",
+      "file": "burled-wood.png",
+      "light": "#e8c29a",
+      "dark": "#744125"
+    },
+    {
+      "id": "dark-blue",
+      "name": "Dark Blue",
+      "file": "dark-blue.png",
+      "light": "#eae9d2",
+      "dark": "#4b7399"
+    },
+    {
+      "id": "bubblegum",
+      "name": "Bubblegum",
+      "file": "bubblegum.png",
+      "light": "#fefffe",
+      "dark": "#fbd9e1"
+    },
+    {
+      "id": "checkers",
+      "name": "Checkers",
+      "file": "checkers.png",
+      "light": "#c64d52",
+      "dark": "#333333"
+    },
+    {
+      "id": "graffiti",
+      "name": "Graffiti",
+      "file": "graffiti.png",
+      "light": "#919191",
+      "dark": "#a88863"
+    },
+    {
+      "id": "light",
+      "name": "Light",
+      "file": "light.png",
+      "light": "#d8d9d8",
+      "dark": "#a8a9a8"
+    },
+    {
+      "id": "neon",
+      "name": "Neon",
+      "file": "neon.png",
+      "light": "#c5c7c7",
+      "dark": "#665d5a"
+    },
+    {
+      "id": "orange",
+      "name": "Orange",
+      "file": "orange.png",
+      "light": "#fae4ae",
+      "dark": "#d18815"
+    },
+    {
+      "id": "parchment",
+      "name": "Parchment",
+      "file": "parchment.png",
+      "light": "#d9d4b7",
+      "dark": "#b1985f"
+    },
+    {
+      "id": "red",
+      "name": "Red",
+      "file": "red.png",
+      "light": "#f5dbc3",
+      "dark": "#bb5746"
+    },
+    {
+      "id": "sand",
+      "name": "Sand",
+      "file": "sand.png",
+      "light": "#d3c3b6",
+      "dark": "#c2ac98"
+    },
+    {
+      "id": "tan",
+      "name": "Tan",
+      "file": "tan.png",
+      "light": "#edcba5",
+      "dark": "#d8a46d"
+    },
+    {
+      "id": "blue",
+      "name": "Blue",
+      "file": "blue.png",
+      "light": "#f2f6fa",
+      "dark": "#5596f2"
+    },
+    {
+      "id": "pink",
+      "name": "Pink",
+      "file": "pink.png",
+      "light": "#f5f0f1",
+      "dark": "#ec94a4"
+    },
+    {
+      "id": "chess-the-musical",
+      "name": "Chess The Musical",
+      "file": "chess-the-musical.png",
+      "light": "#d7d4d4",
+      "dark": "#807b76"
+    },
+    {
+      "id": "event-naroditsky-memorial",
+      "name": "Event - Naroditsky Memorial",
+      "file": "event-naroditsky-memorial.png",
+      "light": "#fbfae9",
+      "dark": "#cea861"
+    },
+    {
+      "id": "event-esports-world-cup-2026",
+      "name": "Event - Esports World Cup 2026",
+      "file": "event-esports-world-cup-2026.png",
+      "light": "#f7f7f7",
+      "dark": "#ccaa6c"
+    },
+    {
+      "id": "sky-and-sea",
+      "name": "Sky and Sea",
+      "file": "sky-and-sea.jpg",
+      "light": "#8fbdcd",
+      "dark": "#044b86"
+    },
+    {
+      "id": "band-class",
+      "name": "Band Class",
+      "file": "band-class.png",
+      "light": "#ebddb6",
+      "dark": "#908e91"
+    }
+  ],
+  "pieces": [
+    {
+      "id": "neo",
+      "name": "Neo"
+    },
+    {
+      "id": "neo-angle",
+      "name": "Neo Angle"
+    },
+    {
+      "id": "game-room",
+      "name": "Game Room"
+    },
+    {
+      "id": "wood",
+      "name": "Wood"
+    },
+    {
+      "id": "glass",
+      "name": "Glass"
+    },
+    {
+      "id": "gothic",
+      "name": "Gothic"
+    },
+    {
+      "id": "classic",
+      "name": "Classic"
+    },
+    {
+      "id": "metal",
+      "name": "Metal"
+    },
+    {
+      "id": "bases",
+      "name": "Bases"
+    },
+    {
+      "id": "neo-wood",
+      "name": "Neo-Wood"
+    },
+    {
+      "id": "icy-sea",
+      "name": "Icy Sea"
+    },
+    {
+      "id": "club",
+      "name": "Club"
+    },
+    {
+      "id": "ocean",
+      "name": "Ocean"
+    },
+    {
+      "id": "newspaper",
+      "name": "Newspaper"
+    },
+    {
+      "id": "space",
+      "name": "Space"
+    },
+    {
+      "id": "cases",
+      "name": "Cases"
+    },
+    {
+      "id": "condal",
+      "name": "Condal"
+    },
+    {
+      "id": "3d-chesskid",
+      "name": "3D - ChessKid"
+    },
+    {
+      "id": "8-bit",
+      "name": "8-Bit"
+    },
+    {
+      "id": "marble",
+      "name": "Marble"
+    },
+    {
+      "id": "book",
+      "name": "Book"
+    },
+    {
+      "id": "alpha",
+      "name": "Alpha"
+    },
+    {
+      "id": "bubblegum",
+      "name": "Bubblegum"
+    },
+    {
+      "id": "dash",
+      "name": "Dash"
+    },
+    {
+      "id": "graffiti",
+      "name": "Graffiti"
+    },
+    {
+      "id": "light",
+      "name": "Light"
+    },
+    {
+      "id": "lolz",
+      "name": "Lolz"
+    },
+    {
+      "id": "luca",
+      "name": "Luca"
+    },
+    {
+      "id": "maya",
+      "name": "Maya"
+    },
+    {
+      "id": "modern",
+      "name": "Modern"
+    },
+    {
+      "id": "nature",
+      "name": "Nature"
+    },
+    {
+      "id": "neon",
+      "name": "Neon"
+    },
+    {
+      "id": "sky",
+      "name": "Sky"
+    },
+    {
+      "id": "tigers",
+      "name": "Tigers"
+    },
+    {
+      "id": "tournament",
+      "name": "Tournament"
+    },
+    {
+      "id": "vintage",
+      "name": "Vintage"
+    },
+    {
+      "id": "real-3d",
+      "name": "Real 3D"
+    },
+    {
+      "id": "3d-staunton",
+      "name": "3D - Staunton"
+    },
+    {
+      "id": "3d-plastic",
+      "name": "3D - Plastic"
+    },
+    {
+      "id": "band-class",
+      "name": "Band Class"
+    }
+  ]
+}

@@ -1,4 +1,6 @@
-/* chess.com-style skin for chessground: Neo pieces, Green board. */
+/* chess.com-style skin for chessground. The board and piece images come from CSS
+   variables set on <html> by applyTheme (lib/themes/applyTheme.ts), chosen in Settings;
+   Green + Neo are the fallback. */
 
 .arx-board {
   container-type: inline-size;
@@ -16,23 +18,23 @@
 }
 
 .arx-board cg-board {
-  background-image: url("/themes/boards/green.png");
+  background-image: var(--board-image, url("/themes/boards/green.png"));
   border-radius: 4px;
 }
 
 /* Pieces */
-.arx-board .cg-wrap piece.pawn.white { background-image: url("/themes/pieces/neo/wp.png"); }
-.arx-board .cg-wrap piece.knight.white { background-image: url("/themes/pieces/neo/wn.png"); }
-.arx-board .cg-wrap piece.bishop.white { background-image: url("/themes/pieces/neo/wb.png"); }
-.arx-board .cg-wrap piece.rook.white { background-image: url("/themes/pieces/neo/wr.png"); }
-.arx-board .cg-wrap piece.queen.white { background-image: url("/themes/pieces/neo/wq.png"); }
-.arx-board .cg-wrap piece.king.white { background-image: url("/themes/pieces/neo/wk.png"); }
-.arx-board .cg-wrap piece.pawn.black { background-image: url("/themes/pieces/neo/bp.png"); }
-.arx-board .cg-wrap piece.knight.black { background-image: url("/themes/pieces/neo/bn.png"); }
-.arx-board .cg-wrap piece.bishop.black { background-image: url("/themes/pieces/neo/bb.png"); }
-.arx-board .cg-wrap piece.rook.black { background-image: url("/themes/pieces/neo/br.png"); }
-.arx-board .cg-wrap piece.queen.black { background-image: url("/themes/pieces/neo/bq.png"); }
-.arx-board .cg-wrap piece.king.black { background-image: url("/themes/pieces/neo/bk.png"); }
+.arx-board .cg-wrap piece.pawn.white { background-image: var(--piece-wp, url("/themes/pieces/neo/wp.png")); }
+.arx-board .cg-wrap piece.knight.white { background-image: var(--piece-wn, url("/themes/pieces/neo/wn.png")); }
+.arx-board .cg-wrap piece.bishop.white { background-image: var(--piece-wb, url("/themes/pieces/neo/wb.png")); }
+.arx-board .cg-wrap piece.rook.white { background-image: var(--piece-wr, url("/themes/pieces/neo/wr.png")); }
+.arx-board .cg-wrap piece.queen.white { background-image: var(--piece-wq, url("/themes/pieces/neo/wq.png")); }
+.arx-board .cg-wrap piece.king.white { background-image: var(--piece-wk, url("/themes/pieces/neo/wk.png")); }
+.arx-board .cg-wrap piece.pawn.black { background-image: var(--piece-bp, url("/themes/pieces/neo/bp.png")); }
+.arx-board .cg-wrap piece.knight.black { background-image: var(--piece-bn, url("/themes/pieces/neo/bn.png")); }
+.arx-board .cg-wrap piece.bishop.black { background-image: var(--piece-bb, url("/themes/pieces/neo/bb.png")); }
+.arx-board .cg-wrap piece.rook.black { background-image: var(--piece-br, url("/themes/pieces/neo/br.png")); }
+.arx-board .cg-wrap piece.queen.black { background-image: var(--piece-bq, url("/themes/pieces/neo/bq.png")); }
+.arx-board .cg-wrap piece.king.black { background-image: var(--piece-bk, url("/themes/pieces/neo/bk.png")); }
 
 .arx-board .cg-wrap piece.ghost { opacity: 0.35; }
 .arx-board cg-board piece.dragging { cursor: grabbing; }
@@ -104,8 +106,8 @@
   text-transform: none;
 }
 
-.arx-board .cg-wrap coords coord.coord-dark { color: #ebecd0; }
-.arx-board .cg-wrap coords coord.coord-light { color: #739552; }
+.arx-board .cg-wrap coords coord.coord-dark { color: var(--coord-on-dark, #ebecd0); }
+.arx-board .cg-wrap coords coord.coord-light { color: var(--coord-on-light, #739552); }
 
 .arx-board .cg-wrap coords.ranks,
 .arx-board .cg-wrap coords.ranks.left {

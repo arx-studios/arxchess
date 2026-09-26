@@ -1,14 +1,31 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Chess } from "chess.js";
+import { ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eraser } from "lucide-react";
 import { ChessBoard } from "@/components/board/ChessBoard";
-import { MoveList } from "@/components/board/MoveList";
-import { EvalBar } from "@/components/board/EvalBar";
+import { GameLayout } from "@/components/game/GameLayout";
+import { PlayerCard } from "@/components/game/PlayerCard";
+import { MoveList } from "@/components/game/MoveList";
+import { EvalBar } from "@/components/game/EvalBar";
+import { PanelFooter, PanelHeader } from "@/components/game/Panel";
+import { Button } from "@/components/ui/Button";
+import { IconButton } from "@/components/ui/IconButton";
 import { StockfishClient, type EngineInfo, type EngineMove } from "@/lib/engine/stockfishClient";
 import { useAnalysisStore } from "@/lib/stores/analysisStore";
 import { formatWhiteScore, toWhiteScore } from "@/lib/chess/evaluation";
+import { statusLine } from "@/lib/chess/status";
+import type { PieceColor } from "@/lib/chess/types";
 
 const ANALYSIS_DEPTH = 18;
+
+function sanOf(fen: string, move: EngineMove): string {
+  try {
+    return new Chess(fen).move(move).san;
+  } catch {
+    return `${move.from}${move.to}`;
+  }
+}
 
 export default function AnalysisPage() {
   const {
@@ -19,6 +36,7 @@ export default function AnalysisPage() {
     isCheck,
     checkSquare,
     lastMove,
+    result,
     makeMove,
     legalDestinations,
     loadPgn,
@@ -28,6 +46,7 @@ export default function AnalysisPage() {
     stepForward,
   } = useAnalysisStore();
 
+  const [orientation, setOrientation] = useState<"white" | "black">("white");
   const [pgnText, setPgnText] = useState("");
   const [pgnError, setPgnError] = useState<string | null>(null);
   const [engineReady, setEngineReady] = useState(false);
@@ -60,98 +79,114 @@ export default function AnalysisPage() {
     };
   }, [fen, engineReady]);
 
+  // Arrow keys step through the game, like chess.com.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return;
+      if (e.key === "ArrowLeft") stepBack();
+      else if (e.key === "ArrowRight") stepForward();
+      else return;
+      e.preventDefault();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [stepBack, stepForward]);
+
   function handleLoadPgn() {
     const outcome = loadPgn(pgnText);
     setPgnError(outcome.ok ? null : outcome.error ?? "Invalid PGN");
-  }
-
-  function handleClear() {
-    reset();
-    setPgnText("");
-    setPgnError(null);
+    if (outcome.ok) setPgnText("");
   }
 
   const whiteScore = liveInfo ? toWhiteScore(liveInfo, turn) : null;
   const arrows = bestMove ? [{ from: bestMove.from, to: bestMove.to }] : [];
+  const bestSan = useMemo(() => (bestMove ? sanOf(fen, bestMove) : null), [fen, bestMove]);
+  const sanHistory = useMemo(() => moves.map((m) => m.san), [moves]);
+
+  const bottom: PieceColor = orientation === "white" ? "w" : "b";
+  const card = (color: PieceColor) => <PlayerCard name={color === "w" ? "White" : "Black"} color={color} fen={fen} />;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="text-xl font-semibold">Analysis Board</h1>
-      <p className="mt-1 text-sm text-neutral-500">
-        {engineReady ? "Move freely, or paste a PGN to step through a game." : "Loading engine…"}
-      </p>
-
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[32px_minmax(0,480px)_260px]">
-        <div className="hidden h-[480px] lg:block">
-          <EvalBar whiteScore={whiteScore} />
-        </div>
-
-        <div className="mx-auto w-full max-w-[480px]">
-          <div className="mb-2 flex h-6 items-center gap-2 text-xs text-neutral-500 lg:hidden">
-            <span className="font-mono">{whiteScore ? formatWhiteScore(whiteScore) : "—"}</span>
-          </div>
-          <ChessBoard
-            fen={fen}
-            orientation="white"
-            turnColor={turn}
-            lastMove={lastMove}
-            checkSquare={checkSquare}
-            arrows={arrows}
-            legalDestinations={legalDestinations}
-            onMove={(from, to, promotion) => makeMove({ from, to, promotion })}
+    <GameLayout
+      top={card(bottom === "w" ? "b" : "w")}
+      bottom={card(bottom)}
+      beside={<EvalBar whiteScore={whiteScore} orientation={orientation} />}
+      board={
+        <ChessBoard
+          fen={fen}
+          orientation={orientation}
+          turnColor={turn}
+          lastMove={lastMove}
+          checkSquare={checkSquare}
+          arrows={arrows}
+          legalDestinations={legalDestinations}
+          onMove={(from, to, promotion) => makeMove({ from, to, promotion })}
+        />
+      }
+      panel={
+        <>
+          <PanelHeader
+            title="Analysis"
+            status={statusLine(turn, isCheck, result)}
+            actions={
+              <>
+                <IconButton
+                  icon={ArrowUpDown}
+                  label="Flip board"
+                  onClick={() => setOrientation((o) => (o === "white" ? "black" : "white"))}
+                />
+                <IconButton icon={Eraser} label="Clear board" onClick={reset} />
+              </>
+            }
           />
-        </div>
 
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between gap-2 text-sm">
-            <div className="flex gap-1">
-              <button onClick={() => goTo(-1)} className="rounded-md border border-neutral-200 px-2 py-1 dark:border-neutral-700">
-                ⏮
-              </button>
-              <button onClick={stepBack} className="rounded-md border border-neutral-200 px-2 py-1 dark:border-neutral-700">
-                ◀
-              </button>
-              <button onClick={stepForward} className="rounded-md border border-neutral-200 px-2 py-1 dark:border-neutral-700">
-                ▶
-              </button>
-              <button
-                onClick={() => goTo(moves.length - 1)}
-                className="rounded-md border border-neutral-200 px-2 py-1 dark:border-neutral-700"
-              >
-                ⏭
-              </button>
+          <div className="flex items-center gap-3 border-b border-line px-4 py-3">
+            <span className="tabular min-w-[4.5rem] rounded-sm bg-raised px-2 py-1 text-center text-title font-bold">
+              {whiteScore ? formatWhiteScore(whiteScore) : "…"}
+            </span>
+            <div className="min-w-0 text-caption text-fg-secondary">
+              {!engineReady ? (
+                "Loading engine…"
+              ) : (
+                <>
+                  <p className="truncate">
+                    Best move{" "}
+                    <span className="font-semibold text-engine">{bestSan ?? "…"}</span>
+                  </p>
+                  <p className="tabular">Depth {liveInfo?.depth ?? 0}/{ANALYSIS_DEPTH}</p>
+                </>
+              )}
             </div>
-            {liveInfo?.depth && <span className="text-xs text-neutral-400">depth {liveInfo.depth}</span>}
           </div>
 
-          <MoveList sanHistory={moves.map((m) => m.san)} currentIndex={currentIndex} onSelectMove={goTo} />
+          <MoveList sanHistory={sanHistory} currentIndex={currentIndex} onSelectMove={goTo} />
 
-          <div>
-            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-neutral-500">Import PGN</p>
+          <details className="group border-t border-line px-4 py-3">
+            <summary className="cursor-pointer select-none text-label font-semibold text-fg-secondary hover:text-fg">
+              Import PGN
+            </summary>
             <textarea
               value={pgnText}
               onChange={(e) => setPgnText(e.target.value)}
               placeholder="1. e4 e5 2. Nf3 Nc6 ..."
-              className="h-24 w-full resize-none rounded-md border border-neutral-200 p-2 text-xs dark:border-neutral-700 dark:bg-neutral-900"
+              className="mt-3 h-24 w-full resize-none rounded-md bg-raised p-3 font-mono text-caption text-fg outline-none placeholder:text-fg-muted focus:outline-2 focus:outline-accent-fg"
             />
-            {pgnError && <p className="mt-1 text-xs text-red-600">{pgnError}</p>}
-            <div className="mt-2 flex gap-2">
-              <button
-                onClick={handleLoadPgn}
-                className="rounded-md border border-neutral-200 px-2.5 py-1 text-xs hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
-              >
-                Load
-              </button>
-              <button
-                onClick={handleClear}
-                className="rounded-md border border-neutral-200 px-2.5 py-1 text-xs hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
-              >
-                Clear board
-              </button>
+            {pgnError && <p className="mt-1 text-caption text-danger">{pgnError}</p>}
+            <Button variant="primary" size="md" className="mt-3 w-full" onClick={handleLoadPgn} disabled={!pgnText.trim()}>
+              Load PGN
+            </Button>
+          </details>
+
+          <PanelFooter>
+            <div className="grid grid-cols-4 gap-1">
+              <IconButton icon={ChevronsLeft} label="First move" onClick={() => goTo(-1)} className="w-full" />
+              <IconButton icon={ChevronLeft} label="Previous move (←)" onClick={stepBack} className="w-full" />
+              <IconButton icon={ChevronRight} label="Next move (→)" onClick={stepForward} className="w-full" />
+              <IconButton icon={ChevronsRight} label="Last move" onClick={() => goTo(moves.length - 1)} className="w-full" />
             </div>
-          </div>
-        </div>
-      </div>
-    </div>
+          </PanelFooter>
+        </>
+      }
+    />
   );
 }

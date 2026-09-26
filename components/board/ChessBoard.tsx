@@ -7,6 +7,7 @@ import type { Config } from "@lichess-org/chessground/config";
 import { premove as premoveDests } from "@lichess-org/chessground/premove";
 import type { Dests, Key } from "@lichess-org/chessground/types";
 import "@lichess-org/chessground/assets/chessground.base.css";
+import { playSound } from "@/lib/sound/sounds";
 import "./chessboard-theme.css";
 
 export type LastMoveHighlight = { from: string; to: string } | null;
@@ -256,6 +257,7 @@ export function ChessBoard(props: ChessBoardProps) {
   function play(move: Premove): boolean {
     const ok = live.current.props.onMove?.(move.from, move.to, move.promotion) ?? false;
     if (ok) sentRef.current = move;
+    else playSound("illegal");
     return ok;
   }
 
@@ -267,7 +269,10 @@ export function ChessBoard(props: ChessBoardProps) {
     if (piece && sideOf(piece) !== p.turnColor) {
       // Not this side's turn: queue it. The board already shows the piece on its new square.
       const premove = toPremove(board, orig, dest);
-      if (premove) queueRef.current = [...queueRef.current, premove];
+      if (premove) {
+        queueRef.current = [...queueRef.current, premove];
+        playSound("premove");
+      }
       sync(true, false);
       return;
     }
@@ -559,7 +564,7 @@ function PromotionPicker({
             key={piece}
             onClick={() => onChoose(piece)}
             className="aspect-square w-full bg-contain bg-center bg-no-repeat transition-colors hover:bg-neutral-200"
-            style={{ backgroundImage: `url(/themes/pieces/neo/${pending.color}${piece}.png)` }}
+            style={{ backgroundImage: `var(--piece-${pending.color}${piece}, url(/themes/pieces/neo/${pending.color}${piece}.png))` }}
             aria-label={`Promote to ${name}`}
           />
         ))}

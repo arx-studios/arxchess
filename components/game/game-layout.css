@@ -1,0 +1,49 @@
+/* Board sizing for GameLayout, per the design doc's App shell section: the
+   board takes the most room the viewport allows (capped at 880px) after the two
+   player cards (2 x 48px + 2 x 8px) and page padding; from 1024px up the 360px
+   panel sits to the right. Pure CSS, so there is no size jump after hydration. */
+
+.game-layout {
+  container-type: inline-size;
+  --beside: 0px; /* e.g. the eval bar */
+  --cards: 112px;
+  --board-size: min(calc(100cqw - var(--beside)), calc(100dvh - var(--cards) - 32px - 64px), 880px);
+}
+
+.game-layout[data-beside="true"] {
+  --beside: 32px;
+}
+
+@media (min-width: 768px) {
+  .game-layout {
+    --board-size: min(calc(100cqw - var(--beside)), calc(100dvh - var(--cards) - 48px), 880px);
+  }
+}
+
+@media (min-width: 1024px) {
+  .game-layout {
+    --board-size: min(calc(100cqw - 360px - 24px - var(--beside)), calc(100dvh - var(--cards) - 48px), 880px);
+  }
+}
+
+.game-layout__board {
+  width: var(--board-size);
+  height: var(--board-size);
+}
+
+.game-layout__column {
+  width: calc(var(--board-size) + var(--beside));
+}
+
+@media (min-width: 1024px) {
+  .game-layout__panel {
+    height: calc(var(--board-size) + var(--cards));
+  }
+}
+
+@keyframes gameover-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}

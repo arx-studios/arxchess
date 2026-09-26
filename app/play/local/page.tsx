@@ -1,20 +1,34 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowUpDown, Flag, Undo2 } from "lucide-react";
 import { ChessBoard } from "@/components/board/ChessBoard";
-import { MoveList } from "@/components/board/MoveList";
-import { GameStatusBanner } from "@/components/board/GameStatusBanner";
-import { ClockDisplay, useChessClock } from "@/components/board/Clock";
+import { GameLayout } from "@/components/game/GameLayout";
+import { PlayerCard } from "@/components/game/PlayerCard";
+import { MoveList } from "@/components/game/MoveList";
+import { GameOverCard, useResultCard } from "@/components/game/GameOverCard";
+import { PanelFooter, PanelHeader, PanelSection } from "@/components/game/Panel";
+import { Button } from "@/components/ui/Button";
+import { IconButton } from "@/components/ui/IconButton";
+import { ChipGroup } from "@/components/ui/Chip";
+import { useChessClock } from "@/lib/chess/useChessClock";
+import { resultHeadline, statusLine } from "@/lib/chess/status";
+import { toPgn } from "@/lib/chess/pgn";
+import { useGameSounds } from "@/lib/sound/useGameSounds";
 import { useLocalGameStore } from "@/lib/stores/localGameStore";
+import { useAnalysisStore } from "@/lib/stores/analysisStore";
+import type { PieceColor } from "@/lib/chess/types";
 
 const TIME_CONTROLS = [
-  { label: "3 min", seconds: 180 },
-  { label: "5 min", seconds: 300 },
-  { label: "10 min", seconds: 600 },
-  { label: "No clock", seconds: 0 },
+  { value: 180, label: "3 min" },
+  { value: 300, label: "5 min" },
+  { value: 600, label: "10 min" },
+  { value: 0, label: "No clock" },
 ];
 
 export default function LocalPlayPage() {
+  const router = useRouter();
   const {
     fen,
     sanHistory,
@@ -32,109 +46,101 @@ export default function LocalPlayPage() {
     resign,
     flagFall,
   } = useLocalGameStore();
+  const loadIntoAnalysis = useAnalysisStore((s) => s.loadPgn);
 
   const [clockSeconds, setClockSeconds] = useState(300);
-
-  const handleFlagFall = useCallback((color: "w" | "b") => flagFall(color), [flagFall]);
+  const handleFlagFall = useCallback((color: PieceColor) => flagFall(color), [flagFall]);
 
   const clockEnabled = clockSeconds > 0;
   const { times, reset: resetClock } = useChessClock({
     initialSeconds: clockSeconds || 1,
     turn,
-    isRunning: clockEnabled && !result,
+    isRunning: clockEnabled && !result && sanHistory.length > 0,
     onFlagFall: handleFlagFall,
   });
 
-  function handleReset() {
+  useGameSounds(sanHistory, !!result);
+  const [showResult, dismissResult] = useResultCard(result);
+
+  function newGame() {
     reset();
     resetClock(clockSeconds || 1);
   }
 
-  function handleTimeControlChange(seconds: number) {
+  function changeTimeControl(seconds: number) {
     setClockSeconds(seconds);
     resetClock(seconds || 1);
   }
 
+  function analyze() {
+    loadIntoAnalysis(toPgn(sanHistory));
+    router.push("/analysis");
+  }
+
+  const bottomColor: PieceColor = boardOrientation === "white" ? "w" : "b";
+  const card = (color: PieceColor) => (
+    <PlayerCard
+      name={color === "w" ? "White" : "Black"}
+      color={color}
+      fen={fen}
+      clockMs={clockEnabled ? times[color] : undefined}
+      toMove={turn === color && !result && sanHistory.length > 0}
+    />
+  );
+  const headline = result ? resultHeadline(result) : null;
+
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="text-xl font-semibold">Pass & Play</h1>
-      <p className="mt-1 text-sm text-neutral-500">
-        Two players share this board. Moves alternate automatically.
-      </p>
-
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,480px)_260px]">
-        <div className="mx-auto w-full max-w-[480px]">
-          <ChessBoard
-            fen={fen}
-            orientation={boardOrientation}
-            interactive={!result}
-            turnColor={turn}
-            lastMove={lastMove}
-            checkSquare={checkSquare}
-            legalDestinations={legalDestinations}
-            onMove={(from, to, promotion) => makeMove({ from, to, promotion })}
-          />
-        </div>
-
-        <div className="flex flex-col gap-4">
-          <ClockDisplay label="Black" ms={times.b} active={clockEnabled && turn === "b" && !result} />
-
-          <GameStatusBanner result={result} isCheck={isCheck} turn={turn} />
-
-          <MoveList sanHistory={sanHistory} />
-
-          <ClockDisplay label="White" ms={times.w} active={clockEnabled && turn === "w" && !result} />
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={undo}
-              className="rounded-md border border-neutral-200 px-3 py-1.5 text-sm hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
-            >
-              Undo
-            </button>
-            <button
-              onClick={flipBoard}
-              className="rounded-md border border-neutral-200 px-3 py-1.5 text-sm hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
-            >
-              Flip board
-            </button>
-            <button
-              onClick={() => resign(turn)}
-              disabled={!!result}
-              className="rounded-md border border-neutral-200 px-3 py-1.5 text-sm hover:bg-neutral-100 disabled:opacity-40 dark:border-neutral-700 dark:hover:bg-neutral-800"
-            >
-              Resign
-            </button>
-            <button
-              onClick={handleReset}
-              className="rounded-md border border-neutral-200 px-3 py-1.5 text-sm hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
-            >
+    <GameLayout
+      top={card(bottomColor === "w" ? "b" : "w")}
+      bottom={card(bottomColor)}
+      board={
+        <ChessBoard
+          fen={fen}
+          orientation={boardOrientation}
+          interactive={!result}
+          turnColor={turn}
+          lastMove={lastMove}
+          checkSquare={checkSquare}
+          legalDestinations={legalDestinations}
+          onMove={(from, to, promotion) => makeMove({ from, to, promotion })}
+        />
+      }
+      overlay={
+        headline &&
+        showResult && (
+          <GameOverCard title={headline.title} reason={headline.reason} onClose={dismissResult}>
+            <Button variant="primary" size="lg" onClick={newGame}>
               New game
-            </button>
-          </div>
-
-          <div>
-            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-neutral-500">
-              Time control
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {TIME_CONTROLS.map((tc) => (
-                <button
-                  key={tc.label}
-                  onClick={() => handleTimeControlChange(tc.seconds)}
-                  className={`rounded-md border px-2.5 py-1 text-xs ${
-                    clockSeconds === tc.seconds
-                      ? "border-blue-400 bg-blue-50 dark:bg-blue-950/40"
-                      : "border-neutral-200 dark:border-neutral-700"
-                  }`}
-                >
-                  {tc.label}
-                </button>
-              ))}
+            </Button>
+            <Button onClick={analyze}>Analyze</Button>
+          </GameOverCard>
+        )
+      }
+      panel={
+        <>
+          <PanelHeader title="Pass & Play" status={statusLine(turn, isCheck, result)} />
+          <PanelSection className="border-b border-line">
+            <ChipGroup
+              label="Time control"
+              options={TIME_CONTROLS}
+              value={clockSeconds}
+              onChange={changeTimeControl}
+              disabled={sanHistory.length > 0 && !result}
+            />
+          </PanelSection>
+          <MoveList sanHistory={sanHistory} />
+          <PanelFooter>
+            <div className="flex gap-1">
+              <IconButton icon={Undo2} label="Undo move" onClick={undo} disabled={!sanHistory.length} />
+              <IconButton icon={ArrowUpDown} label="Flip board" onClick={flipBoard} />
+              <IconButton icon={Flag} label="Resign" onClick={() => resign(turn)} disabled={!!result || !sanHistory.length} />
             </div>
-          </div>
-        </div>
-      </div>
-    </div>
+            <Button variant="primary" size="lg" onClick={newGame}>
+              New game
+            </Button>
+          </PanelFooter>
+        </>
+      }
+    />
   );
 }

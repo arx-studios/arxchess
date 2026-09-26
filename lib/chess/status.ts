@@ -22,6 +22,36 @@ export function deriveResult(game: Chess): GameResult {
   return null;
 }
 
+/**
+ * Headline and reason for the game-over card, e.g. "White won" / "by checkmate".
+ * Pass `me` to phrase it from the user's side ("You won" / "You lost").
+ */
+export function resultHeadline(result: NonNullable<GameResult>, me?: "w" | "b"): { title: string; reason: string } {
+  const reason =
+    result.kind === "checkmate"
+      ? "by checkmate"
+      : result.kind === "timeout"
+        ? "on time"
+        : result.kind === "resignation"
+          ? "by resignation"
+          : result.kind === "stalemate"
+            ? "by stalemate"
+            : result.reason === "insufficient-material"
+              ? "by insufficient material"
+              : result.reason === "repetition"
+                ? "by repetition"
+                : "by the fifty-move rule";
+  if (!("winner" in result)) return { title: "Draw", reason };
+  if (me) return { title: result.winner === me ? "You won" : "You lost", reason };
+  return { title: `${result.winner === "w" ? "White" : "Black"} won`, reason };
+}
+
+/** One-line status for a panel header: "White to move", "Black to move · check", or the result. */
+export function statusLine(turn: "w" | "b", isCheck: boolean, result: GameResult): string {
+  if (result) return describeResult(result);
+  return `${turn === "w" ? "White" : "Black"} to move${isCheck ? " · check" : ""}`;
+}
+
 export function describeResult(result: GameResult): string {
   if (!result) return "";
   switch (result.kind) {
